@@ -1,0 +1,34 @@
+{
+  "name": "notion-sync-manager",
+  "version": "1.0.0",
+  "description": "Multi-project development inbox processor with Notion integration",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3100",
+    "build": "next build",
+    "start": "next start -p 3100",
+    "sync": "node cli/index.js",
+    "sync:dry": "node cli/index.js --dry-run",
+    "sync:daemon": "node cli/index.js --daemon",
+    "lint": "next lint"
+  },
+  "bin": {
+    "notion-sync": "./cli/index.js"
+  },
+  "dependencies": {
+    "next": "^14.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "lucide-react": "^0.263.1"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.3.5",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.31",
+    "eslint": "^8.0.0",
+    "eslint-config-next": "^14.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
