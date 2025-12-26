@@ -91,9 +91,17 @@ export default function ConfigImporter({ projectId, onImportSuccess }) {
               </div>
 
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-dark-400">Source File:</span>
-                  <span className="text-dark-200 font-mono">{preview.files[0]}</span>
+                <div>
+                  <span className="text-dark-400 block mb-1">
+                    Source Files ({preview.files.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {preview.files.map((file, idx) => (
+                      <span key={idx} className="text-xs font-mono px-2 py-1 bg-dark-800 rounded text-dark-200">
+                        {file}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-dark-400">Phases Found:</span>
