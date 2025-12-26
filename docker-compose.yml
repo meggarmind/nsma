@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  nsma:
+    build: .
+    container_name: nsma-prod
+    ports:
+      - "3100:3100"
+    volumes:
+      # Configuration volume (persistent, Docker-managed)
+      # Stores settings.json, projects.json, sync-logs.json
+      - nsma-config:/config
+
+      # Projects directory (bind mount to host filesystem)
+      # Maps host projects directory to /projects in container
+      # Default: ./projects (can be overridden via PROJECTS_PATH env var)
+      - ${PROJECTS_PATH:-./projects}:/projects
+
+    environment:
+      # Node environment
+      - NODE_ENV=production
+
+      # Notion API credentials (from .env file)
+      - NOTION_TOKEN=${NOTION_TOKEN}
+      - NOTION_DATABASE_ID=${NOTION_DATABASE_ID}
+
+      # NSMA registration token (from .env file)
+      - REGISTRATION_TOKEN=${REGISTRATION_TOKEN}
+
+      # Network configuration
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-localhost:3100}
+
+      # Docker-specific paths (override defaults)
+      - NOTION_SYNC_CONFIG_DIR=/config
+      - PROJECTS_BASE_PATH=/projects
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3100/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  # Named volume for persistent configuration
+  # Data persists across container restarts and rebuilds
+  nsma-config:
+    driver: local
