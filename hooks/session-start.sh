@@ -133,6 +133,36 @@ if [ -d "$DEFERRED_DIR" ] && [ -n "$(ls -A "$DEFERRED_DIR"/*.md 2>/dev/null)" ];
     echo "═══════════════════════════════════════════════════════════"
 fi
 
+# ============================================================================
+# INBOX CHECK
+# ============================================================================
+INBOX_DIR="$HOME/.notion-sync-manager/inbox/pending"
+
+if [ -d "$INBOX_DIR" ] && [ -n "$(ls -A "$INBOX_DIR"/*.md 2>/dev/null)" ]; then
+    inbox_count=$(ls -1 "$INBOX_DIR"/*.md 2>/dev/null | wc -l)
+
+    echo ""
+    echo "═══════════════════════════════════════════════════════════"
+    echo "📥 INBOX: $inbox_count item(s) need assignment"
+    echo "═══════════════════════════════════════════════════════════"
+
+    for f in "$INBOX_DIR"/*.md; do
+        [ -e "$f" ] || continue
+
+        filename=$(basename "$f")
+        title=$(grep -m1 "^# Development Task:" "$f" 2>/dev/null | sed 's/# Development Task: //')
+        original=$(grep -m1 "^original_project:" "$f" 2>/dev/null | sed 's/original_project: //')
+        [ -z "$title" ] && title="$filename"
+
+        echo "  • $title"
+        [ -n "$original" ] && echo "    (was: $original)"
+    done
+
+    echo ""
+    echo "Assign items at: http://localhost:3100/inbox"
+    echo "═══════════════════════════════════════════════════════════"
+fi
+
 echo ""
 echo "📂 Prompts location: $PROMPTS_DIR/pending/"
 echo "🌐 Dashboard: http://localhost:3100"

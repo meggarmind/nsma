@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header';
 import StatsOverview from '@/components/dashboard/StatsOverview';
 import SyncBanner from '@/components/dashboard/SyncBanner';
 import ProjectCard from '@/components/dashboard/ProjectCard';
+import InboxCard from '@/components/dashboard/InboxCard';
 import EmptyState from '@/components/ui/EmptyState';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -137,6 +138,10 @@ export default function Dashboard() {
         lastSync={lastSync}
         onSync={handleSyncAll}
       />
+
+      <div className="mb-8">
+        <InboxCard />
+      </div>
 
       <StatsOverview projects={projects} />
 

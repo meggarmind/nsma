@@ -1,12 +1,33 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {  FolderSync, LayoutDashboard, Settings, FileText, FolderOpen, Plus } from 'lucide-react';
+import {  FolderSync, LayoutDashboard, Settings, FileText, FolderOpen, Plus, Inbox } from 'lucide-react';
 import Badge from '../ui/Badge';
 
 export default function Sidebar({ projects = [] }) {
   const pathname = usePathname();
+  const [inboxCount, setInboxCount] = useState(0);
+
+  useEffect(() => {
+    const fetchInboxCount = async () => {
+      try {
+        const res = await fetch('/api/inbox');
+        if (res.ok) {
+          const data = await res.json();
+          setInboxCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch inbox count:', error);
+      }
+    };
+
+    fetchInboxCount();
+    // Refresh every 60 seconds
+    const interval = setInterval(fetchInboxCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -50,6 +71,26 @@ export default function Sidebar({ projects = [] }) {
             <span className="font-medium">{item.label}</span>
           </Link>
         ))}
+
+        {/* Inbox */}
+        <Link
+          href="/inbox"
+          className={`flex items-center justify-between px-4 py-3 rounded-lg transition-all ${
+            pathname === '/inbox'
+              ? 'bg-amber-500/20 text-amber-400'
+              : 'text-gray-400 hover:bg-dark-800 hover:text-white'
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <Inbox size={20} />
+            <span className="font-medium">Inbox</span>
+          </div>
+          {inboxCount > 0 && (
+            <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-full">
+              {inboxCount}
+            </span>
+          )}
+        </Link>
 
         {/* Projects Section */}
         <div className="pt-6">
