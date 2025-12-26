@@ -9,6 +9,7 @@ import BasicSettings from '@/components/editor/BasicSettings';
 import PhaseList from '@/components/editor/PhaseList';
 import ModuleList from '@/components/editor/ModuleList';
 import MappingEditor from '@/components/editor/MappingEditor';
+import ConfigImporter from '@/components/editor/ConfigImporter';
 
 export default function ProjectEditor({ params }) {
   const router = useRouter();
@@ -59,6 +60,10 @@ export default function ProjectEditor({ params }) {
     setProject({ ...project, ...updates });
   };
 
+  const handleConfigImport = (updatedProject) => {
+    setProject(updatedProject);
+  };
+
   if (loading) {
     return <div className="text-dark-500">Loading...</div>;
   }
@@ -86,6 +91,11 @@ export default function ProjectEditor({ params }) {
             </Button>
           </>
         }
+      />
+
+      <ConfigImporter
+        projectId={params.id}
+        onImportSuccess={handleConfigImport}
       />
 
       <BasicSettings

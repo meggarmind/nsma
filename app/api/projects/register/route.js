@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createProject } from '@/lib/storage';
+import { createProject, updateProject } from '@/lib/storage';
 import { validateProjectRegistration, findProjectBySlug } from '@/lib/validation';
 import { verifyRegistrationToken } from '@/lib/auth';
 import { createProjectDirectories } from '@/lib/setup';
 import { NotionClient } from '@/lib/notion';
 import { getSettings, getProjects } from '@/lib/storage';
+import { ConfigParser } from '@/lib/config-parser';
 
 export async function POST(request) {
   try {
@@ -63,6 +64,36 @@ export async function POST(request) {
       modules: body.modules || [],
       modulePhaseMapping: body.modulePhaseMapping || {}
     });
+
+    // 6.5. Auto-import config from docs (if available)
+    try {
+      const parser = new ConfigParser(body.promptsPath);
+      const configFiles = await parser.findConfigFiles();
+
+      if (configFiles.length > 0) {
+        const importedConfig = await parser.autoImport(project);
+
+        // Update the newly created project with imported config
+        await updateProject(project.id, {
+          phases: importedConfig.phases,
+          modules: importedConfig.modules,
+          modulePhaseMapping: importedConfig.modulePhaseMapping,
+          configSource: importedConfig.configSource,
+          lastImportedAt: importedConfig.lastImportedAt
+        });
+
+        // Update project reference for response
+        project.phases = importedConfig.phases;
+        project.modules = importedConfig.modules;
+        project.modulePhaseMapping = importedConfig.modulePhaseMapping;
+        project.configSource = importedConfig.configSource;
+
+        console.log(`Auto-imported config from ${importedConfig.configSource}`);
+      }
+    } catch (importError) {
+      // Non-fatal: log but don't fail registration
+      console.log('Auto-import skipped:', importError.message);
+    }
 
     // 7. Auto-sync to Notion (fail-safe)
     try {
