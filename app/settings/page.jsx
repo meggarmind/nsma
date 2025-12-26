@@ -169,6 +169,49 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      <div className="glass rounded-xl p-6 border border-dark-700 mt-6">
+        <h3 className="text-lg font-semibold text-white mb-2">
+          Registration Token
+        </h3>
+        <p className="text-sm text-gray-400 mb-4">
+          Token required for projects to self-register via API.
+          Used in initialization scripts.
+        </p>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={settings.registrationToken || ''}
+            onChange={(e) => updateSettings({ registrationToken: e.target.value })}
+            placeholder="Enter registration token"
+            className="flex-1 px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white"
+          />
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const token = crypto.randomUUID();
+              updateSettings({ registrationToken: token });
+              navigator.clipboard.writeText(token);
+              showToast('Token generated and copied to clipboard', 'success');
+            }}
+          >
+            Generate
+          </Button>
+        </div>
+
+        {settings.registrationToken && (
+          <div className="mt-3 p-3 bg-dark-800 rounded-lg">
+            <p className="text-xs text-gray-400 mb-1">Example registration command:</p>
+            <code className="text-xs text-green-400 block whitespace-pre-wrap">
+              {`curl -X POST http://localhost:3100/api/projects/register \\
+  -H "Authorization: Bearer ${settings.registrationToken}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"name":"My Project","slug":"my-project","promptsPath":"/path/to/prompts"}'`}
+            </code>
+          </div>
+        )}
+      </div>
     </>
   );
 }
