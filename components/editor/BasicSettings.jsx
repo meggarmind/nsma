@@ -27,6 +27,7 @@ export default function BasicSettings({ project, onChange }) {
           value={project.promptsPath}
           onChange={(e) => onChange({ promptsPath: e.target.value })}
           placeholder="/home/user/projects/MyProject/prompts"
+          helpText="Must end with '/prompts'. Subfolders (pending, processed, archived, deferred) will be created here."
           required
         />
         <label className="flex items-center gap-2">

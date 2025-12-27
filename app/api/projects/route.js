@@ -1,10 +1,26 @@
 import { NextResponse } from 'next/server';
-import { getProjects, createProject, getSettings } from '@/lib/storage';
+import { getProjects, createProject, getSettings, countPrompts, updateProject } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 
-export async function GET() {
+export async function GET(request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const refresh = searchParams.get('refresh') === 'true';
+
     const projects = await getProjects();
+
+    // If refresh requested, recalculate live stats from disk for each project
+    if (refresh) {
+      for (const project of projects) {
+        if (project.promptsPath) {
+          const stats = await countPrompts(project.promptsPath);
+          project.stats = stats;
+          // Also persist the updated stats
+          await updateProject(project.id, { stats });
+        }
+      }
+    }
+
     return NextResponse.json(projects);
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

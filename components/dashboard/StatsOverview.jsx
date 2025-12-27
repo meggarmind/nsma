@@ -1,9 +1,9 @@
 'use client';
 
-import { FolderOpen, FileText, CheckCircle, Clock } from 'lucide-react';
+import { FolderOpen, FileText, CheckCircle, Clock, RefreshCw } from 'lucide-react';
 import Card from '../ui/Card';
 
-export default function StatsOverview({ projects = [] }) {
+export default function StatsOverview({ projects = [], onRefreshAll }) {
   const totalProjects = projects.length;
   const activeProjects = projects.filter(p => p.active).length;
 
@@ -48,20 +48,38 @@ export default function StatsOverview({ projects = [] }) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-      {stats.map((stat, index) => (
-        <Card key={index}>
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-dark-500 mb-1">{stat.label}</p>
-              <p className="text-3xl font-bold text-dark-50">{stat.value}</p>
+    <div className="mb-8">
+      {/* Header with refresh button */}
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-dark-200">Overview</h2>
+        {onRefreshAll && (
+          <button
+            onClick={onRefreshAll}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-dark-400 hover:text-dark-200 hover:bg-dark-700 rounded-lg transition-colors"
+            title="Refresh all stats from disk"
+          >
+            <RefreshCw size={14} />
+            Refresh Stats
+          </button>
+        )}
+      </div>
+
+      {/* Stats grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <Card key={index}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm text-dark-500 mb-1">{stat.label}</p>
+                <p className="text-3xl font-bold text-dark-50">{stat.value}</p>
+              </div>
+              <div className={`p-3 bg-dark-900/50 rounded-lg ${stat.color}`}>
+                <stat.icon size={24} />
+              </div>
             </div>
-            <div className={`p-3 bg-dark-900/50 rounded-lg ${stat.color}`}>
-              <stat.icon size={24} />
-            </div>
-          </div>
-        </Card>
-      ))}
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }

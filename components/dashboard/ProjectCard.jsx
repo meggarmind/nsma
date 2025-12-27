@@ -6,14 +6,21 @@ import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
-export default function ProjectCard({ project, onSync, onToggleActive, syncing = false }) {
+export default function ProjectCard({ project, onSync, onToggleActive, onRefreshStats, syncing = false, refreshing = false }) {
   const stats = project.stats || { pending: 0, processed: 0, archived: 0, deferred: 0 };
+  const lastSync = project.lastSync || null;
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
+    const diffMs = date - new Date();
+    const diffMins = Math.round(diffMs / (1000 * 60));
+
+    if (diffMins > -60) {
+      return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(diffMins, 'minute');
+    }
     return new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
-      Math.ceil((date - new Date()) / (1000 * 60 * 60 * 24)),
+      Math.ceil(diffMs / (1000 * 60 * 60 * 24)),
       'day'
     );
   };
@@ -56,10 +63,27 @@ export default function ProjectCard({ project, onSync, onToggleActive, syncing =
         </div>
       </div>
 
-      {/* Last Sync */}
-      <div className="flex items-center gap-2 text-sm text-dark-500 mb-4">
-        <Calendar size={14} />
-        <span>Last sync: {formatDate(project.lastSyncAt)}</span>
+      {/* Last Sync Info */}
+      <div className="flex items-center justify-between text-sm text-dark-500 mb-4">
+        <div className="flex items-center gap-2">
+          <Calendar size={14} />
+          <span>Last sync: {formatDate(project.lastSyncAt)}</span>
+          {lastSync && lastSync.imported > 0 && (
+            <Badge variant="info" className="ml-2 text-xs">
+              +{lastSync.imported} imported
+            </Badge>
+          )}
+        </div>
+        {onRefreshStats && (
+          <button
+            onClick={() => onRefreshStats(project.id)}
+            disabled={refreshing}
+            className="p-1 hover:bg-dark-700 rounded transition-colors"
+            title="Refresh stats from disk"
+          >
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+          </button>
+        )}
       </div>
 
       {/* Actions */}

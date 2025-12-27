@@ -281,6 +281,23 @@ Common issues:
 - Wrong working directory in service file
 - Permissions on CLI script
 
+### Prompts path configuration
+
+**IMPORTANT**: The prompts path must end with `/prompts`. Example:
+- Correct: `/home/user/projects/Residio/prompts`
+- Wrong: `/home/user/projects/Residio/` (will create folders in project root)
+
+The system will auto-correct paths that don't end with `/prompts`, but it's best to configure it correctly from the start.
+
+### Dashboard shows wrong stats
+
+If the dashboard shows different counts than what's on disk (e.g., shows 3 pending but disk has 7 files):
+1. Click the refresh icon next to "Last sync" on the project card
+2. Or click "Refresh Stats" in the Overview section
+3. Stats are automatically refreshed after each sync
+
+**Why this happens**: Stats are cached and only update after syncs. Manual file moves won't be reflected until you refresh.
+
 ## Development
 
 ### Project Structure

@@ -18,6 +18,7 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncingProjects, setSyncingProjects] = useState(new Set());
+  const [refreshingProjects, setRefreshingProjects] = useState(new Set());
   const [lastSync, setLastSync] = useState(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', slug: '', promptsPath: '', active: true });
@@ -97,6 +98,47 @@ export default function Dashboard() {
     }
   };
 
+  const handleRefreshStats = async (projectId) => {
+    setRefreshingProjects(prev => new Set(prev).add(projectId));
+    try {
+      const res = await fetch(`/api/projects/${projectId}/refresh`, { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || 'Refresh failed', 'error');
+        return;
+      }
+
+      showToast('Stats refreshed from disk', 'success');
+      await loadProjects();
+    } catch (error) {
+      showToast(error.message || 'Network error', 'error');
+    } finally {
+      setRefreshingProjects(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    }
+  };
+
+  const handleRefreshAllStats = async () => {
+    try {
+      const res = await fetch('/api/projects?refresh=true');
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || 'Refresh failed', 'error');
+        return;
+      }
+
+      setProjects(data);
+      showToast('All stats refreshed from disk', 'success');
+    } catch (error) {
+      showToast(error.message || 'Network error', 'error');
+    }
+  };
+
   const handleCreateProject = async () => {
     try {
       const res = await fetch('/api/projects', {
@@ -143,7 +185,7 @@ export default function Dashboard() {
         <InboxCard />
       </div>
 
-      <StatsOverview projects={projects} />
+      <StatsOverview projects={projects} onRefreshAll={handleRefreshAllStats} />
 
       {projects.length === 0 ? (
         <EmptyState
@@ -164,8 +206,10 @@ export default function Dashboard() {
               key={project.id}
               project={project}
               syncing={syncingProjects.has(project.id)}
+              refreshing={refreshingProjects.has(project.id)}
               onSync={handleSyncProject}
               onToggleActive={handleToggleActive}
+              onRefreshStats={handleRefreshStats}
             />
           ))}
         </div>
@@ -206,6 +250,7 @@ export default function Dashboard() {
             value={newProject.promptsPath}
             onChange={(e) => setNewProject({ ...newProject, promptsPath: e.target.value })}
             placeholder="/home/user/projects/MyProject/prompts"
+            helpText="Must end with '/prompts'. Subfolders will be created automatically."
             required
           />
         </div>
