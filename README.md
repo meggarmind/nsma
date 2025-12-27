@@ -318,6 +318,213 @@ Nsma/
 - **Storage**: JSON files
 - **Runtime**: Node.js 18+
 
+## New Project Onboarding Guide
+
+Complete step-by-step guide for registering new projects with NSMA.
+
+### Prerequisites
+
+Before starting, ensure:
+1. **NSMA is installed** at `/home/feyijimiohioma/projects/Nsma`
+2. **Node.js 18+** is available
+3. **Notion integration** is set up with API token
+4. **NSMA settings configured** at `~/.notion-sync-manager/settings.json`
+
+### Step 1: Create Project Configuration File
+
+Create `.nsma-config.md` in your project root:
+
+```markdown
+---
+version: "1.0"
+project_type: "web_application"
+auto_import: true
+---
+
+# Project Configuration: YourProjectName
+
+## Development Phases
+
+### Phase 1: Foundation
+- **ID**: `foundation`
+- **Description**: Core infrastructure setup
+- **Keywords**: database, auth, setup, config
+- **Priority**: 1
+
+### Phase 2: Features
+- **Description**: Main feature development
+- **Keywords**: feature, component, ui
+- **Priority**: 2
+
+### Backlog
+- **Description**: Future work
+- **Keywords**: backlog, later
+- **Priority**: 99
+
+## Modules
+
+### Authentication
+- **ID**: `auth`
+- **Paths**:
+  - `src/auth/`
+  - `src/lib/auth/`
+- **Phase**: `Foundation`
+```
+
+### Step 2: Register Project with NSMA
+
+#### Option A: Web Dashboard (Recommended)
+
+1. Start NSMA dashboard:
+   ```bash
+   cd /home/feyijimiohioma/projects/Nsma && npm run dev
+   ```
+
+2. Open http://localhost:3100
+
+3. Click **"New Project"**
+
+4. Fill in:
+   - **Name**: Your Project Name
+   - **Slug**: `your-project-slug` (must match Notion "Project" property)
+   - **Prompts Path**: `/path/to/your/project/prompts`
+
+5. Click **"Check for Config Files"** to auto-import phases/modules
+
+6. Save
+
+#### Option B: API Registration
+
+```bash
+curl -X POST http://localhost:3100/api/projects/register \
+  -H "Authorization: Bearer YOUR_REGISTRATION_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Your Project",
+    "slug": "your-project-slug",
+    "promptsPath": "/path/to/your/project/prompts",
+    "active": true
+  }'
+```
+
+Get your registration token from `~/.notion-sync-manager/settings.json`.
+
+### Step 3: Create Directory Structure
+
+```bash
+cd /path/to/your/project
+mkdir -p prompts/pending prompts/processed prompts/archived prompts/deferred
+```
+
+Structure:
+```
+your-project/
+├── prompts/
+│   ├── pending/      # New prompts from Notion
+│   ├── processed/    # Completed tasks
+│   ├── deferred/     # Postponed tasks
+│   └── archived/     # Skipped tasks
+└── .nsma-config.md   # Phase/module config
+```
+
+### Step 4: Install SessionStart Hook
+
+Copy the universal hook to your project:
+
+```bash
+mkdir -p /path/to/your/project/.claude/hooks
+cp /home/feyijimiohioma/projects/Nsma/hooks/session-start.sh \
+   /path/to/your/project/.claude/hooks/session-start.sh
+chmod +x /path/to/your/project/.claude/hooks/session-start.sh
+```
+
+### Step 5: Configure Notion Database
+
+Ensure your Notion database has these properties:
+
+| Property | Type | Notes |
+|----------|------|-------|
+| **Project** | Select | Must include your project slug as an option |
+| **Status** | Select | "Not started", "In progress", "Done", "Deferred", "Archived" |
+| **Type** | Select | "Feature", "Bug Fix", "Documentation", etc. |
+| **Affected Module** | Select | Maps to your config modules |
+| **Hydrated** | Checkbox | If true, uses page body content |
+
+### Step 6: Test the Setup
+
+#### 6.1 Verify Registration
+```bash
+cat ~/.notion-sync-manager/projects.json | jq '.[] | select(.slug == "your-project-slug")'
+```
+
+#### 6.2 Run Dry Sync
+```bash
+node /home/feyijimiohioma/projects/Nsma/cli/index.js --project your-project-slug --dry-run
+```
+
+#### 6.3 Test Hook
+```bash
+cd /path/to/your/project
+bash .claude/hooks/session-start.sh
+```
+
+Expected output:
+```
+╔══════════════════════════════════════════════════════════╗
+║           NOTION SYNC MANAGER - Session Start            ║
+╚══════════════════════════════════════════════════════════╝
+
+Project: your-project-slug
+Current Phase: Phase 1
+
+🔄 Running Notion sync...
+...
+```
+
+### Step 7: Verify in Dashboard
+
+1. Open http://localhost:3100
+2. Your project should appear with stats
+3. Check that phases/modules were imported correctly
+
+### Onboarding Checklist
+
+- [ ] `.nsma-config.md` created with phases/modules
+- [ ] Project registered in NSMA dashboard
+- [ ] `prompts/{pending,processed,deferred,archived}` directories created
+- [ ] SessionStart hook installed at `.claude/hooks/session-start.sh`
+- [ ] Notion database has "Project" property with your slug
+- [ ] Dry-run sync succeeds
+- [ ] Hook executes and displays banner
+
+### Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start NSMA dashboard (port 3100) |
+| `npm run sync` | Sync all active projects |
+| `npm run sync -- --project SLUG` | Sync specific project |
+| `npm run sync:dry` | Preview sync without changes |
+
+| File/Directory | Purpose |
+|----------------|---------|
+| `~/.notion-sync-manager/projects.json` | All project configs |
+| `~/.notion-sync-manager/settings.json` | Global settings (token, database ID) |
+| `.nsma-config.md` | Per-project phase/module config |
+| `prompts/pending/` | Active prompts to process |
+
+### Onboarding Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "fetch failed" | Check Notion token in settings.json |
+| Project not syncing | Verify `active: true` in projects.json |
+| Prompts not appearing | Check slug matches Notion "Project" property |
+| Phases not imported | Run "Check for Config Files" in dashboard |
+| Hook not running | Verify `.claude/hooks/session-start.sh` is executable |
+
+---
+
 ## License
 
 MIT
