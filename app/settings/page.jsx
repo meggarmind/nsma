@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import NotionConfig from '@/components/settings/NotionConfig';
 import SyncConfig from '@/components/settings/SyncConfig';
 import TemplateConfig from '@/components/settings/TemplateConfig';
+import AIConfig from '@/components/settings/AIConfig';
 
 export default function Settings() {
   const { showToast } = useToast();
@@ -130,6 +131,11 @@ export default function Settings() {
       />
 
       <TemplateConfig
+        settings={settings}
+        onChange={updateSettings}
+      />
+
+      <AIConfig
         settings={settings}
         onChange={updateSettings}
       />
