@@ -1,12 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { FolderOpen, Pause, Play, RefreshCw, Calendar } from 'lucide-react';
+import { FolderOpen, Pause, Play, RefreshCw, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
 
-export default function ProjectCard({ project, onSync, onToggleActive, onRefreshStats, syncing = false, refreshing = false }) {
+export default function ProjectCard({
+  project,
+  onSync,
+  onToggleActive,
+  onRefreshStats,
+  onReverseSync,
+  syncing = false,
+  refreshing = false,
+  reverseSyncing = false
+}) {
   const stats = project.stats || { pending: 0, processed: 0, archived: 0, deferred: 0 };
   const lastSync = project.lastSync || null;
 
@@ -63,27 +72,46 @@ export default function ProjectCard({ project, onSync, onToggleActive, onRefresh
         </div>
       </div>
 
-      {/* Last Sync Info */}
-      <div className="flex items-center justify-between text-sm text-dark-500 mb-4">
+      {/* Sync Info */}
+      <div className="space-y-2 text-sm text-dark-500 mb-4">
+        {/* Forward Sync (Notion → Files) */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ArrowDown size={14} className="text-blue-400" />
+            <span>From Notion: {formatDate(project.lastSyncAt)}</span>
+            {lastSync && lastSync.imported > 0 && (
+              <Badge variant="info" className="text-xs">
+                +{lastSync.imported}
+              </Badge>
+            )}
+          </div>
+          {onRefreshStats && (
+            <button
+              onClick={() => onRefreshStats(project.id)}
+              disabled={refreshing}
+              className="p-1 hover:bg-dark-700 rounded transition-colors"
+              title="Refresh stats from disk"
+            >
+              <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            </button>
+          )}
+        </div>
+
+        {/* Reverse Sync (Files → Notion) */}
         <div className="flex items-center gap-2">
-          <Calendar size={14} />
-          <span>Last sync: {formatDate(project.lastSyncAt)}</span>
-          {lastSync && lastSync.imported > 0 && (
-            <Badge variant="info" className="ml-2 text-xs">
-              +{lastSync.imported} imported
+          <ArrowUp size={14} className="text-green-400" />
+          <span>To Notion: {formatDate(project.lastReverseSync?.timestamp)}</span>
+          {project.lastReverseSync?.updated > 0 && (
+            <Badge variant="success" className="text-xs">
+              {project.lastReverseSync.updated} updated
+            </Badge>
+          )}
+          {project.lastReverseSync?.failed > 0 && (
+            <Badge variant="error" className="text-xs">
+              {project.lastReverseSync.failed} failed
             </Badge>
           )}
         </div>
-        {onRefreshStats && (
-          <button
-            onClick={() => onRefreshStats(project.id)}
-            disabled={refreshing}
-            className="p-1 hover:bg-dark-700 rounded transition-colors"
-            title="Refresh stats from disk"
-          >
-            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
-          </button>
-        )}
       </div>
 
       {/* Actions */}
@@ -92,25 +120,46 @@ export default function ProjectCard({ project, onSync, onToggleActive, onRefresh
           variant="ghost"
           size="sm"
           onClick={() => onToggleActive(project.id, !project.active)}
-          disabled={syncing}
+          disabled={syncing || reverseSyncing}
           className="flex items-center gap-2"
         >
           {project.active ? <Pause size={16} /> : <Play size={16} />}
           {project.active ? 'Pause' : 'Resume'}
         </Button>
+
+        {/* Reverse Sync Button (Files → Notion) */}
+        {onReverseSync && project.reverseSyncEnabled !== false && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onReverseSync(project.id)}
+            disabled={syncing || reverseSyncing}
+            className="flex items-center gap-2"
+            title="Sync local file statuses to Notion"
+          >
+            {reverseSyncing ? (
+              <ArrowUp size={16} className="animate-pulse" />
+            ) : (
+              <ArrowUp size={16} />
+            )}
+            {reverseSyncing ? 'Syncing...' : 'To Notion'}
+          </Button>
+        )}
+
+        {/* Forward Sync Button (Notion → Files) */}
         <Button
           variant="secondary"
           size="sm"
           onClick={() => onSync(project.id)}
-          disabled={syncing}
+          disabled={syncing || reverseSyncing}
           className="flex items-center gap-2 ml-auto"
         >
           {syncing ? (
-            <RefreshCw size={16} className="animate-spin" />
+            <ArrowDown size={16} className="animate-spin" />
           ) : (
-            <RefreshCw size={16} />
+            <ArrowDown size={16} />
           )}
-          {syncing ? 'Syncing...' : 'Sync Now'}
+          {syncing ? 'Syncing...' : 'From Notion'}
         </Button>
       </div>
     </Card>

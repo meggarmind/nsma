@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [syncing, setSyncing] = useState(false);
   const [syncingProjects, setSyncingProjects] = useState(new Set());
   const [refreshingProjects, setRefreshingProjects] = useState(new Set());
+  const [reverseSyncingProjects, setReverseSyncingProjects] = useState(new Set());
   const [lastSync, setLastSync] = useState(null);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', slug: '', promptsPath: '', active: true });
@@ -139,6 +140,38 @@ export default function Dashboard() {
     }
   };
 
+  const handleReverseSync = async (projectId) => {
+    setReverseSyncingProjects(prev => new Set(prev).add(projectId));
+    try {
+      const res = await fetch(`/api/projects/${projectId}/reverse-sync`, { method: 'POST' });
+      const data = await res.json();
+
+      if (!res.ok) {
+        showToast(data.error || 'Reverse sync failed', 'error');
+        return;
+      }
+
+      const { updated, failed } = data.result;
+      if (updated > 0) {
+        showToast(`Synced ${updated} file(s) to Notion`, 'success');
+      } else if (failed > 0) {
+        showToast(`Reverse sync: ${failed} failed`, 'warning');
+      } else {
+        showToast('No files needed syncing', 'info');
+      }
+
+      await loadProjects();
+    } catch (error) {
+      showToast(error.message || 'Network error', 'error');
+    } finally {
+      setReverseSyncingProjects(prev => {
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
+    }
+  };
+
   const handleCreateProject = async () => {
     try {
       const res = await fetch('/api/projects', {
@@ -207,9 +240,11 @@ export default function Dashboard() {
               project={project}
               syncing={syncingProjects.has(project.id)}
               refreshing={refreshingProjects.has(project.id)}
+              reverseSyncing={reverseSyncingProjects.has(project.id)}
               onSync={handleSyncProject}
               onToggleActive={handleToggleActive}
               onRefreshStats={handleRefreshStats}
+              onReverseSync={handleReverseSync}
             />
           ))}
         </div>

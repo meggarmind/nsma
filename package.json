@@ -10,6 +10,9 @@
     "sync": "node cli/index.js",
     "sync:dry": "node cli/index.js --dry-run",
     "sync:daemon": "node cli/index.js --daemon",
+    "sync:forward": "node cli/index.js --skip-reverse-sync",
+    "reverse-sync": "node cli/index.js reverse-sync",
+    "reverse-sync:dry": "node cli/index.js reverse-sync --dry-run",
     "lint": "next lint"
   },
   "bin": {
