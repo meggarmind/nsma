@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "chokidar": "^5.0.0",
     "lucide-react": "^0.263.1",
     "next": "^14.0.0",
     "react": "^18.2.0",
