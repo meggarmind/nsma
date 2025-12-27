@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {  FolderSync, LayoutDashboard, Settings, FileText, FolderOpen, Plus, Inbox } from 'lucide-react';
+import {  FolderSync, LayoutDashboard, Settings, FileText, FolderOpen, Plus, Inbox, BarChart3 } from 'lucide-react';
 import Badge from '../ui/Badge';
 
 export default function Sidebar({ projects = [] }) {
@@ -31,6 +31,7 @@ export default function Sidebar({ projects = [] }) {
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/settings', label: 'Settings', icon: Settings },
     { href: '/logs', label: 'Logs', icon: FileText },
   ];
