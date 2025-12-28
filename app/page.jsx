@@ -10,8 +10,7 @@ import ProjectCard from '@/components/dashboard/ProjectCard';
 import InboxCard from '@/components/dashboard/InboxCard';
 import EmptyState from '@/components/ui/EmptyState';
 import Button from '@/components/ui/Button';
-import Modal from '@/components/ui/Modal';
-import Input from '@/components/ui/Input';
+import AddProjectWizard from '@/components/wizard/AddProjectWizard';
 
 export default function Dashboard() {
   const { showToast } = useToast();
@@ -21,8 +20,7 @@ export default function Dashboard() {
   const [refreshingProjects, setRefreshingProjects] = useState(new Set());
   const [reverseSyncingProjects, setReverseSyncingProjects] = useState(new Set());
   const [lastSync, setLastSync] = useState(null);
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', slug: '', promptsPath: '', active: true });
+  const [showWizard, setShowWizard] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -172,27 +170,9 @@ export default function Dashboard() {
     }
   };
 
-  const handleCreateProject = async () => {
-    try {
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newProject)
-      });
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Failed to create project', 'error');
-        return;
-      }
-
-      showToast('Project created successfully', 'success');
-      setShowNewProject(false);
-      setNewProject({ name: '', slug: '', promptsPath: '', active: true });
-      await loadProjects();
-    } catch (error) {
-      showToast(error.message || 'Network error', 'error');
-    }
+  const handleWizardSuccess = async () => {
+    showToast('Project created successfully', 'success');
+    await loadProjects();
   };
 
   return (
@@ -201,7 +181,7 @@ export default function Dashboard() {
         title="Dashboard"
         description="Manage your projects and sync development prompts from Notion"
         actions={
-          <Button onClick={() => setShowNewProject(true)} className="flex items-center gap-2">
+          <Button onClick={() => setShowWizard(true)} className="flex items-center gap-2">
             <FolderPlus size={18} />
             New Project
           </Button>
@@ -226,7 +206,7 @@ export default function Dashboard() {
           title="No projects yet"
           description="Create your first project to start syncing development prompts from Notion"
           action={
-            <Button onClick={() => setShowNewProject(true)} className="flex items-center gap-2">
+            <Button onClick={() => setShowWizard(true)} className="flex items-center gap-2">
               <FolderPlus size={18} />
               Create First Project
             </Button>
@@ -250,46 +230,11 @@ export default function Dashboard() {
         </div>
       )}
 
-      <Modal
-        isOpen={showNewProject}
-        onClose={() => setShowNewProject(false)}
-        title="New Project"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setShowNewProject(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleCreateProject}>
-              Create Project
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <Input
-            label="Project Name"
-            value={newProject.name}
-            onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
-            placeholder="e.g., Residio"
-            required
-          />
-          <Input
-            label="Slug"
-            value={newProject.slug}
-            onChange={(e) => setNewProject({ ...newProject, slug: e.target.value })}
-            placeholder="e.g., residio (must match Notion)"
-            required
-          />
-          <Input
-            label="Prompts Path"
-            value={newProject.promptsPath}
-            onChange={(e) => setNewProject({ ...newProject, promptsPath: e.target.value })}
-            placeholder="/home/user/projects/MyProject/prompts"
-            helpText="Must end with '/prompts'. Subfolders will be created automatically."
-            required
-          />
-        </div>
-      </Modal>
+      <AddProjectWizard
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+        onSuccess={handleWizardSuccess}
+      />
     </>
   );
 }

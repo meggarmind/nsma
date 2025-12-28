@@ -1,9 +1,16 @@
 #!/usr/bin/env node
+import { createInterface } from 'readline';
 import { SyncProcessor } from '../lib/processor.js';
 import { getSettings, getProjects, updateProject, addLog } from '../lib/storage.js';
 import { ConfigWatcher } from '../lib/config-watcher.js';
 import { ReverseSyncProcessor } from '../lib/reverse-sync.js';
 import { NotionClient } from '../lib/notion.js';
+import {
+  generateProjectDefaults,
+  validatePaths,
+  detectConfigFiles,
+  createProjectWithSetup
+} from '../lib/wizard.js';
 
 const args = process.argv.slice(2);
 
@@ -32,6 +39,7 @@ Usage:
 Commands:
   (default)          Run full sync (Notion → files, then files → Notion)
   reverse-sync       Run reverse sync only (files → Notion)
+  add-project        Interactive wizard to add a new project
 
 Options:
   --project <slug>   Process only this project (by slug, name, or id)
@@ -47,9 +55,190 @@ Examples:
   node cli/index.js --dry-run            # Preview sync
   node cli/index.js --skip-reverse-sync  # Forward sync only
   node cli/index.js reverse-sync         # Reverse sync only
+  node cli/index.js add-project          # Add a new project interactively
   node cli/index.js --daemon             # Run as background service
 `);
   process.exit(0);
+}
+
+// ============================================================================
+// ADD PROJECT WIZARD (Interactive CLI)
+// ============================================================================
+
+/**
+ * Helper to prompt user for input
+ */
+function prompt(rl, question) {
+  return new Promise(resolve => {
+    rl.question(question, answer => resolve(answer.trim()));
+  });
+}
+
+/**
+ * Interactive wizard to add a new project
+ */
+async function runAddProjectWizard() {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  console.log('\n' + '═'.repeat(60));
+  console.log('          ADD NEW PROJECT WIZARD');
+  console.log('═'.repeat(60) + '\n');
+
+  try {
+    // Step 1: Get PROJECT_ROOT
+    console.log('Step 1/5: Project Root');
+    console.log('─'.repeat(40));
+    const projectRoot = await prompt(rl, 'Enter PROJECT_ROOT path: ');
+
+    if (!projectRoot) {
+      console.log('\n❌ PROJECT_ROOT is required. Aborting.');
+      rl.close();
+      return;
+    }
+
+    // Generate defaults
+    const defaults = generateProjectDefaults(projectRoot);
+
+    // Step 2: Review/Edit Name and Slug
+    console.log('\nStep 2/5: Project Details');
+    console.log('─'.repeat(40));
+    console.log(`Auto-generated from path:`);
+    console.log(`  Name: ${defaults.name}`);
+    console.log(`  Slug: ${defaults.slug}`);
+
+    const nameInput = await prompt(rl, `Project name [${defaults.name}]: `);
+    const name = nameInput || defaults.name;
+
+    const slugInput = await prompt(rl, `Project slug [${defaults.slug}]: `);
+    const slug = slugInput || defaults.slug;
+
+    // Step 3: Prompts Directory
+    console.log('\nStep 3/5: Prompts Directory');
+    console.log('─'.repeat(40));
+    const promptsPathInput = await prompt(rl, `Prompts directory [${defaults.promptsPath}]: `);
+    let promptsPath = promptsPathInput || defaults.promptsPath;
+
+    // Validate paths
+    console.log('\nValidating paths...');
+    const validation = validatePaths(projectRoot, promptsPath);
+
+    if (!validation.valid) {
+      console.log('\n❌ Validation failed:');
+      validation.errors.forEach(e => console.log(`   - ${e}`));
+      rl.close();
+      return;
+    }
+
+    // Apply corrections if any
+    if (validation.corrections.promptsPath) {
+      promptsPath = validation.corrections.promptsPath;
+    }
+
+    // Show warnings
+    if (validation.warnings.length > 0) {
+      console.log('\n⚠️  Warnings:');
+      validation.warnings.forEach(w => console.log(`   - ${w}`));
+    }
+
+    // Step 4: Confirmation
+    console.log('\nStep 4/5: Review & Confirm');
+    console.log('─'.repeat(40));
+    console.log(`  Project Root:  ${projectRoot}`);
+    console.log(`  Project Name:  ${name}`);
+    console.log(`  Project Slug:  ${slug}`);
+    console.log(`  Prompts Path:  ${promptsPath}`);
+
+    const confirmCreate = await prompt(rl, '\nProceed with project creation? (y/n): ');
+    if (confirmCreate.toLowerCase() !== 'y' && confirmCreate.toLowerCase() !== 'yes') {
+      console.log('\n❌ Aborted by user.');
+      rl.close();
+      return;
+    }
+
+    // Step 5: Config and Hook Options
+    console.log('\nStep 5/5: Configuration Options');
+    console.log('─'.repeat(40));
+
+    // Check for existing config files
+    const configDetection = await detectConfigFiles(projectRoot);
+    let importConfig = true;
+    let createConfigTemplate = false;
+
+    if (configDetection.found) {
+      console.log(`Found config files: ${configDetection.files.join(', ')}`);
+      const doImport = await prompt(rl, 'Import phases/modules from config? (y/n) [y]: ');
+      importConfig = doImport.toLowerCase() !== 'n';
+    } else {
+      console.log('No config files found (.nsma-config.md, PERSPECTIVE.md, etc.)');
+      const createConfig = await prompt(rl, 'Create starter .nsma-config.md template? (y/n) [y]: ');
+      createConfigTemplate = createConfig.toLowerCase() !== 'n';
+    }
+
+    // Hook style choice
+    console.log('\nHook style options:');
+    console.log('  1. Full   - Complete hook with prompt analysis');
+    console.log('  2. Minimal - Just sync, no analysis');
+    const hookChoice = await prompt(rl, 'Choose hook style (1/2) [1]: ');
+    const hookStyle = hookChoice === '2' ? 'minimal' : 'full';
+
+    // Execute wizard
+    console.log('\n' + '─'.repeat(40));
+    console.log('Creating project...\n');
+
+    const result = await createProjectWithSetup({
+      projectRoot,
+      name,
+      slug,
+      promptsPath,
+      importConfig,
+      hookStyle,
+      createConfigTemplate
+    });
+
+    rl.close();
+
+    // Display results
+    if (result.success) {
+      console.log('\n' + '═'.repeat(60));
+      console.log('          PROJECT CREATED SUCCESSFULLY');
+      console.log('═'.repeat(60));
+      console.log(`\nProject: ${result.project.name}`);
+      console.log(`ID: ${result.project.id}`);
+      console.log(`Slug: ${result.project.slug}`);
+
+      if (result.imported) {
+        console.log(`\nImported from: ${result.imported.source}`);
+        console.log(`  - ${result.imported.phases} phases`);
+        console.log(`  - ${result.imported.modules} modules`);
+      }
+
+      console.log('\nCreated:');
+      result.created.forEach(f => console.log(`  ✓ ${f}`));
+
+      if (result.warnings.length > 0) {
+        console.log('\nWarnings:');
+        result.warnings.forEach(w => console.log(`  ⚠️  ${w}`));
+      }
+
+      console.log('\n' + '─'.repeat(60));
+      console.log('Next steps:');
+      console.log(`  1. Open dashboard: http://localhost:3100/projects/${result.project.id}`);
+      console.log(`  2. Sync from Notion: node cli/index.js --project ${slug}`);
+      console.log('  3. Start a Claude Code session in your project');
+      console.log('═'.repeat(60) + '\n');
+
+    } else {
+      console.log('\n❌ Project creation failed:');
+      result.errors.forEach(e => console.log(`   - ${e}`));
+    }
+
+  } catch (error) {
+    console.error('\n❌ Wizard error:', error.message);
+    rl.close();
+  }
 }
 
 // Standalone reverse sync command
@@ -149,6 +338,12 @@ async function runReverseSyncOnly() {
 
 // Main execution
 async function main() {
+  // Handle add-project wizard command
+  if (args[0] === 'add-project') {
+    await runAddProjectWizard();
+    return;
+  }
+
   // Handle reverse-sync command
   if (args[0] === 'reverse-sync') {
     await runReverseSyncOnly();
