@@ -20,10 +20,12 @@ export default function InboxPage() {
 
   useEffect(() => {
     fetchData();
+    const interval = setInterval(() => fetchData(false), 30000); // Auto-refresh every 30s
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError(null);
 
     try {

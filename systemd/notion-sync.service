@@ -8,7 +8,7 @@ User=feyijimiohioma
 Environment=NODE_ENV=production
 Environment=NOTION_SYNC_CONFIG_DIR=/home/feyijimiohioma/.notion-sync-manager
 WorkingDirectory=/home/feyijimiohioma/projects/Nsma
-ExecStart=/usr/bin/node cli/index.js --daemon
+ExecStart=/home/feyijimiohioma/.nvm/versions/node/v24.11.1/bin/node cli/index.js --daemon
 Restart=always
 RestartSec=30
 StandardOutput=journal

@@ -24,6 +24,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     loadProjects();
+    const interval = setInterval(loadProjects, 30000); // Auto-refresh every 30s
+    return () => clearInterval(interval);
   }, []);
 
   const loadProjects = async () => {

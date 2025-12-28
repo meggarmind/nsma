@@ -11,6 +11,8 @@ export default function InboxCard() {
 
   useEffect(() => {
     fetchInboxStats();
+    const interval = setInterval(fetchInboxStats, 30000); // Auto-refresh every 30s
+    return () => clearInterval(interval);
   }, []);
 
   const fetchInboxStats = async () => {
