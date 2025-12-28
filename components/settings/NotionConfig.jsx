@@ -20,7 +20,7 @@ export default function NotionConfig({ settings, onChange }) {
           label="Database ID"
           value={settings.notionDatabaseId}
           onChange={(e) => onChange({ notionDatabaseId: e.target.value })}
-          placeholder="2d22bfe3ea0c81059ebef821673358c3"
+          placeholder="Paste database ID from URL"
           required
         />
         <p className="text-sm text-dark-500">

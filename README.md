@@ -32,7 +32,7 @@ Access dashboard at: http://localhost:3100
 
 1. Go to Settings page
 2. Enter your Notion integration token
-3. Verify database ID: `2d22bfe3ea0c81059ebef821673358c3`
+3. Enter your Notion database ID (from your database URL)
 
 ### 4. Add Your First Project
 
