@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Button from '@/components/ui/Button';
+import ConfirmModal from '@/components/ui/ConfirmModal';
 import BasicSettings from '@/components/editor/BasicSettings';
 import PhaseList from '@/components/editor/PhaseList';
 import ModuleList from '@/components/editor/ModuleList';
@@ -16,6 +17,8 @@ export default function ProjectEditor() {
   const { id } = useParams();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadProject();
@@ -47,13 +50,14 @@ export default function ProjectEditor() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this project?')) return;
-
+    setDeleting(true);
     try {
       await fetch(`/api/projects/${id}`, { method: 'DELETE' });
       router.push('/');
     } catch (error) {
       console.error('Failed to delete project:', error);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -83,7 +87,7 @@ export default function ProjectEditor() {
             <Button variant="secondary" onClick={() => router.push('/')}>
               <ArrowLeft size={18} />
             </Button>
-            <Button variant="danger" onClick={handleDelete}>
+            <Button variant="danger" onClick={() => setShowDeleteModal(true)}>
               <Trash2 size={18} />
             </Button>
             <Button onClick={handleSave} className="flex items-center gap-2">
@@ -119,6 +123,18 @@ export default function ProjectEditor() {
         phases={project.phases}
         mapping={project.modulePhaseMapping}
         onChange={(modulePhaseMapping) => updateProject({ modulePhaseMapping })}
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Delete Project"
+        message={`Are you sure you want to delete "${project.name}"? This action cannot be undone. The project's prompt files will remain on disk but will no longer be synced.`}
+        confirmText="Delete Project"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deleting}
       />
     </>
   );

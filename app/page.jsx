@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FolderPlus } from 'lucide-react';
+import { FolderPlus, Search } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import Header from '@/components/layout/Header';
 import StatsOverview from '@/components/dashboard/StatsOverview';
 import SyncBanner from '@/components/dashboard/SyncBanner';
+import SyncStatusDashboard from '@/components/dashboard/SyncStatusDashboard';
 import ProjectCard from '@/components/dashboard/ProjectCard';
 import InboxCard from '@/components/dashboard/InboxCard';
 import EmptyState from '@/components/ui/EmptyState';
@@ -21,6 +22,8 @@ export default function Dashboard() {
   const [reverseSyncingProjects, setReverseSyncingProjects] = useState(new Set());
   const [lastSync, setLastSync] = useState(null);
   const [showWizard, setShowWizard] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'active', 'paused'
 
   useEffect(() => {
     loadProjects();
@@ -177,6 +180,22 @@ export default function Dashboard() {
     await loadProjects();
   };
 
+  // Filter and search projects
+  const filteredProjects = projects.filter(project => {
+    // Search filter
+    const matchesSearch = searchQuery === '' ||
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.slug.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Status filter
+    const matchesStatus =
+      filterStatus === 'all' ||
+      (filterStatus === 'active' && project.active) ||
+      (filterStatus === 'paused' && !project.active);
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <>
       <Header
@@ -196,11 +215,51 @@ export default function Dashboard() {
         onSync={handleSyncAll}
       />
 
+      <SyncStatusDashboard />
+
       <div className="mb-8">
         <InboxCard />
       </div>
 
       <StatsOverview projects={projects} onRefreshAll={handleRefreshAllStats} />
+
+      {/* Search and Filter Bar */}
+      {projects.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-500" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-dark-50 placeholder-dark-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
+            />
+          </div>
+
+          {/* Filter Buttons */}
+          <div className="flex gap-2">
+            {[
+              { value: 'all', label: 'All' },
+              { value: 'active', label: 'Active' },
+              { value: 'paused', label: 'Paused' }
+            ].map(({ value, label }) => (
+              <button
+                key={value}
+                onClick={() => setFilterStatus(value)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  filterStatus === value
+                    ? 'bg-accent text-white'
+                    : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {projects.length === 0 ? (
         <EmptyState
@@ -214,9 +273,20 @@ export default function Dashboard() {
             </Button>
           }
         />
+      ) : filteredProjects.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="No matching projects"
+          description={searchQuery ? `No projects match "${searchQuery}"` : "No projects match the current filter"}
+          action={
+            <Button variant="secondary" onClick={() => { setSearchQuery(''); setFilterStatus('all'); }}>
+              Clear Filters
+            </Button>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
+          {filteredProjects.map((project) => (
             <ProjectCard
               key={project.id}
               project={project}
