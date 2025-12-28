@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Button from '@/components/ui/Button';
@@ -11,18 +11,19 @@ import ModuleList from '@/components/editor/ModuleList';
 import MappingEditor from '@/components/editor/MappingEditor';
 import ConfigImporter from '@/components/editor/ConfigImporter';
 
-export default function ProjectEditor({ params }) {
+export default function ProjectEditor() {
   const router = useRouter();
+  const { id } = useParams();
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadProject();
-  }, [params.id]);
+  }, [id]);
 
   const loadProject = async () => {
     try {
-      const res = await fetch(`/api/projects/${params.id}`);
+      const res = await fetch(`/api/projects/${id}`);
       const data = await res.json();
       setProject(data);
     } catch (error) {
@@ -34,7 +35,7 @@ export default function ProjectEditor({ params }) {
 
   const handleSave = async () => {
     try {
-      await fetch(`/api/projects/${params.id}`, {
+      await fetch(`/api/projects/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(project)
@@ -49,7 +50,7 @@ export default function ProjectEditor({ params }) {
     if (!confirm('Are you sure you want to delete this project?')) return;
 
     try {
-      await fetch(`/api/projects/${params.id}`, { method: 'DELETE' });
+      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
       router.push('/');
     } catch (error) {
       console.error('Failed to delete project:', error);
@@ -94,7 +95,7 @@ export default function ProjectEditor({ params }) {
       />
 
       <ConfigImporter
-        projectId={params.id}
+        projectId={id}
         onImportSuccess={handleConfigImport}
       />
 

@@ -4,7 +4,8 @@ import { getProject } from '@/lib/storage';
 
 export async function POST(request, { params }) {
   try {
-    const project = await getProject(params.id);
+    const { id } = await params;
+    const project = await getProject(id);
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
