@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createInterface } from 'readline';
 import { SyncProcessor } from '../lib/processor.js';
-import { getSettings, getProjects, updateProject, addLog } from '../lib/storage.js';
+import { getSettings, getProjects, updateProject, addLog, logInfo, logWarn } from '../lib/storage.js';
 import { ConfigWatcher } from '../lib/config-watcher.js';
 import { ReverseSyncProcessor } from '../lib/reverse-sync.js';
 import { NotionClient } from '../lib/notion.js';
@@ -306,14 +306,34 @@ async function runReverseSyncOnly() {
         });
 
         if (result.updated > 0 || result.failed > 0) {
-          await addLog({
-            action: 'reverse-sync',
+          const logFn = result.failed > 0 ? logWarn : logInfo;
+
+          // Format error details with type labels for UI display
+          const errorDetails = result.failed > 0 && result.errors?.length > 0
+            ? {
+                message: `${result.failed} file(s) failed to sync to Notion`,
+                items: result.errors.map(e => {
+                  const typeLabel = e.errorType === 'permission'
+                    ? ' (permission denied)'
+                    : e.errorType === 'deleted' ? ' (page deleted)' : '';
+                  return `${e.file}: ${e.error}${typeLabel}`;
+                }).join('\n')
+              }
+            : null;
+
+          await logFn({
+            operation: 'reverse-sync',
             projectId: project.id,
             projectName: project.name,
+            message: result.failed > 0
+              ? `Reverse sync completed with ${result.failed} failure(s)`
+              : `Reverse sync completed: ${result.updated} item(s) updated`,
             updated: result.updated,
             failed: result.failed,
             skipped: result.skipped,
-            errors: result.errors
+            details: errorDetails,
+            errors: result.errors,
+            updatedItems: result.updatedItems
           });
         }
       }

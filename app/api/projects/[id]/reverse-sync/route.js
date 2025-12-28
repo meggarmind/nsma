@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getProject, getSettings, updateProject, addLog } from '@/lib/storage';
+import { getProject, getSettings, updateProject, logInfo, logWarn } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { ReverseSyncProcessor } from '@/lib/reverse-sync';
 
@@ -57,14 +57,34 @@ export async function POST(request, { params }) {
 
     // Log the activity if there were changes
     if (result.updated > 0 || result.failed > 0) {
-      await addLog({
-        action: 'reverse-sync',
+      const logFn = result.failed > 0 ? logWarn : logInfo;
+
+      // Format error details with type labels for UI display
+      const errorDetails = result.failed > 0 && result.errors?.length > 0
+        ? {
+            message: `${result.failed} file(s) failed to sync to Notion`,
+            items: result.errors.map(e => {
+              const typeLabel = e.errorType === 'permission'
+                ? ' (permission denied)'
+                : e.errorType === 'deleted' ? ' (page deleted)' : '';
+              return `${e.file}: ${e.error}${typeLabel}`;
+            }).join('\n')
+          }
+        : null;
+
+      await logFn({
+        operation: 'reverse-sync',
         projectId: project.id,
         projectName: project.name,
+        message: result.failed > 0
+          ? `Reverse sync completed with ${result.failed} failure(s)`
+          : `Reverse sync completed: ${result.updated} item(s) updated`,
         updated: result.updated,
         failed: result.failed,
         skipped: result.skipped,
+        details: errorDetails,
         errors: result.errors,
+        updatedItems: result.updatedItems,
         trigger: 'manual'
       });
     }

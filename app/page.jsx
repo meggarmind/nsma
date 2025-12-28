@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { FolderPlus, Search } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
+import { useSyncEvents } from '@/hooks/useSyncEvents';
 import Header from '@/components/layout/Header';
 import StatsOverview from '@/components/dashboard/StatsOverview';
 import SyncBanner from '@/components/dashboard/SyncBanner';
@@ -15,6 +16,11 @@ import AddProjectWizard from '@/components/wizard/AddProjectWizard';
 
 export default function Dashboard() {
   const { showToast } = useToast();
+
+  // Enable background sync event detection with toast notifications
+  // Polls faster (5s) when window is focused, slower (30s) when blurred
+  useSyncEvents({ focusedInterval: 5000, blurredInterval: 30000 });
+
   const [projects, setProjects] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncingProjects, setSyncingProjects] = useState(new Set());

@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header';
 import Button from '@/components/ui/Button';
 import ConfirmModal from '@/components/ui/ConfirmModal';
 import BasicSettings from '@/components/editor/BasicSettings';
+import AIPromptEditor from '@/components/editor/AIPromptEditor';
 import PhaseList from '@/components/editor/PhaseList';
 import ModuleList from '@/components/editor/ModuleList';
 import MappingEditor from '@/components/editor/MappingEditor';
@@ -104,6 +105,11 @@ export default function ProjectEditor() {
       />
 
       <BasicSettings
+        project={project}
+        onChange={updateProject}
+      />
+
+      <AIPromptEditor
         project={project}
         onChange={updateProject}
       />
