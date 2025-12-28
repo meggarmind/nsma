@@ -259,6 +259,21 @@ async function runReverseSyncOnly() {
 
   const notion = new NotionClient(settings.notionToken);
 
+  // Warm up API connection by querying the database first
+  // This establishes context that makes subsequent updatePage calls work
+  // (Notion API quirk: page operations fail without prior database interaction)
+  if (settings.notionDatabaseId) {
+    try {
+      await notion.queryDatabase(settings.notionDatabaseId, null, 'In progress');
+      if (options.verbose) {
+        console.log('   ✓ API connection established');
+      }
+    } catch (warmupError) {
+      console.warn('   ⚠️  Database warm-up query failed:', warmupError.message);
+      // Continue anyway - some operations may still work
+    }
+  }
+
   // Filter to target project if specified
   if (options.project) {
     projects = projects.filter(p =>

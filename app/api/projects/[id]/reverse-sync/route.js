@@ -35,6 +35,17 @@ export async function POST(request, { params }) {
 
     // Initialize processors
     const notion = new NotionClient(settings.notionToken);
+
+    // Warm up API connection by querying the database first
+    // (Notion API quirk: page operations may fail without prior database interaction)
+    if (settings.notionDatabaseId) {
+      try {
+        await notion.queryDatabase(settings.notionDatabaseId, null, 'In progress');
+      } catch (e) {
+        // Continue anyway - warm-up is best-effort
+      }
+    }
+
     const processor = new ReverseSyncProcessor({
       notionClient: notion,
       errorMode: project.reverseSyncErrorMode || 'skip',
