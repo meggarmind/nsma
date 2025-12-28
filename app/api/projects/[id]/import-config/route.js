@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getProject, updateProject } from '@/lib/storage';
+import { getProject, updateProject, getProjectRoot } from '@/lib/storage';
 import { ConfigParser } from '@/lib/config-parser';
-import { resolvePromptsPath } from '@/lib/storage';
 
 /**
  * GET /api/projects/[id]/import-config
@@ -26,8 +25,8 @@ export async function GET(request, { params }) {
       );
     }
 
-    const projectPath = resolvePromptsPath(project.promptsPath);
-    const parser = new ConfigParser(projectPath);
+    const projectRoot = getProjectRoot(project.promptsPath);
+    const parser = new ConfigParser(projectRoot);
 
     // Find available config files
     const configFiles = await parser.findConfigFiles();
@@ -94,11 +93,11 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Resolve the actual project directory
-    const projectPath = resolvePromptsPath(project.promptsPath);
+    // Resolve the actual project directory (root, not prompts path)
+    const projectRoot = getProjectRoot(project.promptsPath);
 
     // Parse configuration
-    const parser = new ConfigParser(projectPath);
+    const parser = new ConfigParser(projectRoot);
 
     try {
       const importedConfig = await parser.autoImport(project);
