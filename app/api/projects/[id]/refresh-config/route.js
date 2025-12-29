@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getProject } from '@/lib/storage';
 import { ConfigWatcher } from '@/lib/config-watcher';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
 /**
  * POST /api/projects/[id]/refresh-config
  * Manually trigger config refresh for a project
+ * Protected: Requires Bearer token authentication
  */
-export async function POST(request, { params }) {
+async function handlePost(request, { params }) {
   try {
     const { id } = await params;
 
@@ -34,10 +37,7 @@ export async function POST(request, { params }) {
     });
   } catch (error) {
     console.error('Config refresh error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to refresh config' },
-      { status: 500 }
-    );
+    return jsonError(error);
   }
 }
 
@@ -69,9 +69,8 @@ export async function GET(request, { params }) {
     });
   } catch (error) {
     console.error('Config check error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to check config' },
-      { status: 500 }
-    );
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

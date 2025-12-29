@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getProjects, getSettings, saveSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
-export async function POST() {
+/**
+ * POST /api/settings/sync-projects
+ * Sync project slugs to Notion database dropdown
+ * Protected: Requires Bearer token authentication
+ */
+async function handlePost() {
   try {
     const settings = await getSettings();
 
@@ -118,6 +125,8 @@ export async function POST() {
         : 'All projects, modules, and phases already synced to Notion'
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

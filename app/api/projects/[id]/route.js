@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getProject, updateProject, deleteProject, getProjects, getSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
 export async function GET(request, { params }) {
   try {
@@ -11,11 +13,12 @@ export async function GET(request, { params }) {
     }
     return NextResponse.json(project);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
 
-export async function PUT(request, { params }) {
+// Protected: Requires Bearer token authentication
+async function handlePut(request, { params }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -43,17 +46,21 @@ export async function PUT(request, { params }) {
 
     return NextResponse.json(project);
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
 
-export async function DELETE(request, { params }) {
+// Protected: Requires Bearer token authentication
+async function handleDelete(request, { params }) {
   try {
     const { id } = await params;
     await deleteProject(id);
     // Note: We don't remove from Notion dropdown - orphaned items will go to Inbox
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const PUT = withAuth(handlePut);
+export const DELETE = withAuth(handleDelete);

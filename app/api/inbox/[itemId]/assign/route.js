@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getInboxItems, moveInboxItemToProject, getProject, getSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
-export async function POST(request, { params }) {
+/**
+ * POST /api/inbox/[itemId]/assign
+ * Assign an inbox item to a project
+ * Protected: Requires Bearer token authentication
+ */
+async function handlePost(request, { params }) {
   try {
     const { itemId } = await params;
     const body = await request.json();
@@ -49,6 +56,8 @@ export async function POST(request, { params }) {
       message: `Assigned "${item.title}" to ${project.name}`
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getProject, updateProject, getProjectRoot } from '@/lib/storage';
 import { ConfigParser } from '@/lib/config-parser';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
 /**
  * GET /api/projects/[id]/import-config
@@ -63,18 +65,16 @@ export async function GET(request, { params }) {
 
   } catch (error) {
     console.error('Preview config error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return jsonError(error);
   }
 }
 
 /**
  * POST /api/projects/[id]/import-config
  * Import configuration from project documentation files
+ * Protected: Requires Bearer token authentication
  */
-export async function POST(request, { params }) {
+async function handlePost(request, { params }) {
   try {
     const { id } = await params;
     const project = await getProject(id);
@@ -133,9 +133,8 @@ export async function POST(request, { params }) {
 
   } catch (error) {
     console.error('Import config error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

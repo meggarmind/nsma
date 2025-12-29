@@ -91,9 +91,19 @@ if [ -z "$REPO_URL" ]; then
   fi
 fi
 
-# Resolve paths to absolute
-INSTALL_DIR=$(realpath -m "$INSTALL_DIR")
-CONFIG_DIR=$(realpath -m "$CONFIG_DIR")
+# Expand ~ in paths (handles cases where ~ doesn't expand in quoted args)
+expand_path() {
+  local path="$1"
+  # If path starts with ~, expand it
+  if [[ "$path" == "~"* ]]; then
+    path="${path/#\~/$HOME}"
+  fi
+  echo "$path"
+}
+
+# Resolve paths to absolute (with ~ expansion)
+INSTALL_DIR=$(realpath -m "$(expand_path "$INSTALL_DIR")")
+CONFIG_DIR=$(realpath -m "$(expand_path "$CONFIG_DIR")")
 
 # Find Node.js path
 NODE_PATH=$(which node 2>/dev/null || echo "")

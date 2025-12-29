@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { SyncProcessor } from '@/lib/processor';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
-export async function POST() {
+// Protected: Requires Bearer token authentication
+async function handlePost() {
   try {
     const processor = new SyncProcessor();
     const results = await processor.run();
     return NextResponse.json({ success: true, results });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

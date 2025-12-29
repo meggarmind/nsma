@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 import { getProject, getSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { ReverseSyncProcessor } from '@/lib/reverse-sync';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
 /**
  * Retry failed reverse sync for a project
  * POST /api/logs/retry
  * Body: { projectId: string }
+ * Protected: Requires Bearer token authentication
  */
-export async function POST(request) {
+async function handlePost(request) {
   try {
     const body = await request.json();
     const { projectId } = body;
@@ -49,6 +52,8 @@ export async function POST(request) {
         : `Successfully synced ${result.updated} file(s) to Notion`
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { SyncProcessor } from '@/lib/processor';
 import { getProject } from '@/lib/storage';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
-export async function POST(request, { params }) {
+/**
+ * POST /api/sync/[id]
+ * Trigger sync for a specific project
+ * Protected: Requires Bearer token authentication
+ */
+async function handlePost(request, { params }) {
   try {
     const { id } = await params;
     const project = await getProject(id);
@@ -14,6 +21,8 @@ export async function POST(request, { params }) {
     const results = await processor.run();
     return NextResponse.json({ success: true, results });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);

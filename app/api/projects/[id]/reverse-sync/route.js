@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 import { getProject, getSettings, updateProject, logInfo, logWarn } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { ReverseSyncProcessor } from '@/lib/reverse-sync';
+import { jsonError } from '@/lib/api-response';
+import { withAuth } from '@/lib/auth';
 
 /**
  * POST /api/projects/[id]/reverse-sync
  * Manually trigger reverse sync for a project
  * Syncs local file folder locations to Notion page statuses
+ * Protected: Requires Bearer token authentication
  */
-export async function POST(request, { params }) {
+async function handlePost(request, { params }) {
   try {
     const { id } = await params;
 
@@ -114,6 +117,8 @@ export async function POST(request, { params }) {
 
   } catch (error) {
     console.error('Reverse sync error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error);
   }
 }
+
+export const POST = withAuth(handlePost);
