@@ -134,11 +134,11 @@ NSMA supports running separate development and production instances simultaneous
 
 ```bash
 # Run the production setup script
-./scripts/setup-prod.sh --install-dir=~/projects/nsma-prod --port=5100 --instance=prod
+./scripts/setup-prod.sh --install-dir=~/apps/nsma-prod --port=5100 --instance=prod
 ```
 
 This will:
-1. Clone the repo to `~/projects/nsma-prod`
+1. Clone the repo to `~/apps/nsma-prod`
 2. Install dependencies and build
 3. Create and enable systemd user services
 4. Start production on port 5100
@@ -148,7 +148,7 @@ This will:
 | Instance | Port | Directory | Services |
 |----------|------|-----------|----------|
 | Development | 3100 | `~/projects/Nsma` | Manual (`npm run dev`) |
-| Production | 5100 | `~/projects/nsma-prod` | systemd (`nsma-daemon-prod`, `nsma-web-prod`) |
+| Production | 5100 | `~/apps/nsma-prod` | systemd (`nsma-daemon-prod`, `nsma-web-prod`) |
 
 Both instances share the same config directory (`~/.notion-sync-manager/`).
 
@@ -168,7 +168,7 @@ Updates include **auto-rollback** — if the build fails, changes are automatica
 ./scripts/setup-prod.sh [options]
 
 Options:
-  --install-dir=PATH    Installation directory (default: ~/projects/nsma-prod)
+  --install-dir=PATH    Installation directory (default: ~/apps/nsma-prod)
   --port=PORT           Web server port (default: 5100)
   --instance=NAME       Instance name (default: prod)
   --config-dir=PATH     Config directory (default: ~/.notion-sync-manager)

@@ -7,7 +7,7 @@
 # Usage: ./setup-prod.sh [options]
 #
 # Options:
-#   --install-dir=PATH    Installation directory (default: ~/projects/nsma-prod)
+#   --install-dir=PATH    Installation directory (default: ~/apps/nsma-prod)
 #   --port=PORT           Web server port (default: 5100)
 #   --instance=NAME       Instance name (default: prod)
 #   --config-dir=PATH     Config directory (default: ~/.notion-sync-manager)
@@ -28,7 +28,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Default values
-INSTALL_DIR="${HOME}/projects/nsma-prod"
+INSTALL_DIR="${HOME}/apps/nsma-prod"
 PORT="5100"
 INSTANCE="prod"
 CONFIG_DIR="${HOME}/.notion-sync-manager"
