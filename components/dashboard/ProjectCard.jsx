@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FolderOpen, Pause, Play, RefreshCw, Calendar, ArrowUp, ArrowDown } from 'lucide-react';
+import { FolderOpen, Pause, Play, RefreshCw, Calendar, ArrowUp, ArrowDown, Check } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -14,7 +14,10 @@ export default function ProjectCard({
   onReverseSync,
   syncing = false,
   refreshing = false,
-  reverseSyncing = false
+  reverseSyncing = false,
+  selectionMode = false,
+  selected = false,
+  onSelect = null
 }) {
   const stats = project.stats || { pending: 0, processed: 0, archived: 0, deferred: 0 };
   const lastSync = project.lastSync || null;
@@ -35,9 +38,22 @@ export default function ProjectCard({
   };
 
   return (
-    <Card hover className={`flex flex-col h-full ${syncing ? 'opacity-60' : ''}`}>
+    <Card hover className={`flex flex-col h-full ${syncing ? 'opacity-60' : ''} ${selected ? 'ring-2 ring-accent' : ''}`}>
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
+        {/* Selection Checkbox */}
+        {selectionMode && onSelect && (
+          <button
+            onClick={() => onSelect(project.id)}
+            className={`mr-3 mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+              selected
+                ? 'bg-accent border-accent text-white'
+                : 'border-dark-500 hover:border-accent'
+            }`}
+          >
+            {selected && <Check size={14} />}
+          </button>
+        )}
         <Link href={`/projects/${project.id}`} className="flex items-center gap-3 flex-1">
           <div className="p-2 bg-accent/20 rounded-lg">
             <FolderOpen className="text-accent" size={20} />

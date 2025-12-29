@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { FolderPlus, Search } from 'lucide-react';
+import { FolderPlus, Search, CheckSquare, Square, RefreshCw, ArrowDown, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useSyncEvents } from '@/hooks/useSyncEvents';
 import Header from '@/components/layout/Header';
@@ -30,6 +30,10 @@ export default function Dashboard() {
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'active', 'paused'
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedProjects, setSelectedProjects] = useState(new Set());
+  const [bulkSyncing, setBulkSyncing] = useState(false);
+  const [bulkRefreshing, setBulkRefreshing] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -186,6 +190,88 @@ export default function Dashboard() {
     await loadProjects();
   };
 
+  // Selection handlers
+  const handleToggleSelection = (projectId) => {
+    setSelectedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const visibleIds = filteredProjects.map(p => p.id);
+    setSelectedProjects(new Set(visibleIds));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedProjects(new Set());
+    setSelectionMode(false);
+  };
+
+  // Bulk operations
+  const handleBulkSync = async () => {
+    if (selectedProjects.size === 0) return;
+
+    setBulkSyncing(true);
+    const projectIds = Array.from(selectedProjects);
+
+    try {
+      // Sync all selected projects in parallel
+      const results = await Promise.allSettled(
+        projectIds.map(id =>
+          fetch(`/api/sync/${id}`, { method: 'POST' }).then(r => r.json())
+        )
+      );
+
+      const succeeded = results.filter(r => r.status === 'fulfilled' && !r.value.error).length;
+      const failed = results.length - succeeded;
+
+      if (failed > 0) {
+        showToast(`Synced ${succeeded} projects, ${failed} failed`, 'warning');
+      } else {
+        showToast(`Successfully synced ${succeeded} projects`, 'success');
+      }
+
+      await loadProjects();
+      handleClearSelection();
+    } catch (error) {
+      showToast('Bulk sync failed', 'error');
+    } finally {
+      setBulkSyncing(false);
+    }
+  };
+
+  const handleBulkRefresh = async () => {
+    if (selectedProjects.size === 0) return;
+
+    setBulkRefreshing(true);
+    const projectIds = Array.from(selectedProjects);
+
+    try {
+      // Refresh all selected projects in parallel
+      const results = await Promise.allSettled(
+        projectIds.map(id =>
+          fetch(`/api/projects/${id}/refresh`, { method: 'POST' }).then(r => r.json())
+        )
+      );
+
+      const succeeded = results.filter(r => r.status === 'fulfilled' && !r.value.error).length;
+      showToast(`Refreshed stats for ${succeeded} projects`, 'success');
+
+      await loadProjects();
+      handleClearSelection();
+    } catch (error) {
+      showToast('Bulk refresh failed', 'error');
+    } finally {
+      setBulkRefreshing(false);
+    }
+  };
+
   // Filter and search projects
   const filteredProjects = projects.filter(project => {
     // Search filter
@@ -229,6 +315,46 @@ export default function Dashboard() {
 
       <StatsOverview projects={projects} onRefreshAll={handleRefreshAllStats} />
 
+      {/* Bulk Action Bar - appears when projects are selected */}
+      {selectionMode && selectedProjects.size > 0 && (
+        <div className="flex items-center gap-4 mb-6 p-4 bg-accent/10 border border-accent/30 rounded-lg">
+          <span className="text-sm font-medium text-accent">
+            {selectedProjects.size} project{selectedProjects.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex gap-2 ml-auto">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleBulkRefresh}
+              disabled={bulkRefreshing || bulkSyncing}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw size={16} className={bulkRefreshing ? 'animate-spin' : ''} />
+              {bulkRefreshing ? 'Refreshing...' : 'Refresh Stats'}
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleBulkSync}
+              disabled={bulkSyncing || bulkRefreshing}
+              className="flex items-center gap-2"
+            >
+              <ArrowDown size={16} className={bulkSyncing ? 'animate-spin' : ''} />
+              {bulkSyncing ? 'Syncing...' : 'Sync from Notion'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearSelection}
+              className="flex items-center gap-2"
+            >
+              <X size={16} />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filter Bar */}
       {projects.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -264,6 +390,35 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
+
+          {/* Selection Mode Toggle */}
+          <button
+            onClick={() => {
+              if (selectionMode) {
+                handleClearSelection();
+              } else {
+                setSelectionMode(true);
+              }
+            }}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              selectionMode
+                ? 'bg-accent text-white'
+                : 'bg-dark-800 text-dark-300 hover:bg-dark-700'
+            }`}
+          >
+            {selectionMode ? <CheckSquare size={16} /> : <Square size={16} />}
+            {selectionMode ? 'Selecting' : 'Select'}
+          </button>
+
+          {/* Select All (only shown in selection mode) */}
+          {selectionMode && filteredProjects.length > 0 && (
+            <button
+              onClick={handleSelectAll}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-dark-800 text-dark-300 hover:bg-dark-700 transition-colors"
+            >
+              Select All ({filteredProjects.length})
+            </button>
+          )}
         </div>
       )}
 
@@ -303,6 +458,9 @@ export default function Dashboard() {
               onToggleActive={handleToggleActive}
               onRefreshStats={handleRefreshStats}
               onReverseSync={handleReverseSync}
+              selectionMode={selectionMode}
+              selected={selectedProjects.has(project.id)}
+              onSelect={handleToggleSelection}
             />
           ))}
         </div>

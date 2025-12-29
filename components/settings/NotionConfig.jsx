@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ExternalLink } from 'lucide-react';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
@@ -201,6 +202,22 @@ export default function NotionConfig({ settings, onChange }) {
             </p>
           )}
         </div>
+
+        {/* Project Slugs Page Link */}
+        {settings.projectSlugsPageId && (
+          <div className="flex items-center gap-2 px-4 py-3 bg-dark-800/50 border border-dark-700 rounded-lg">
+            <ExternalLink size={16} className="text-accent" />
+            <span className="text-sm text-dark-300">Project Slugs Reference:</span>
+            <a
+              href={`https://notion.so/${settings.projectSlugsPageId.replace(/-/g, '')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-accent hover:underline"
+            >
+              View in Notion
+            </a>
+          </div>
+        )}
 
         <p className="text-sm text-dark-500">
           Get your integration token from{' '}

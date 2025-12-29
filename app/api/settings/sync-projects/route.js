@@ -24,6 +24,43 @@ export async function POST() {
       slugs
     );
 
+    // Collect unique modules and phases from all projects
+    const uniqueModules = [...new Set(
+      projects.flatMap(p => (p.modules || []).map(m => m.name))
+    )].filter(Boolean);
+
+    const uniquePhases = [...new Set(
+      projects.flatMap(p => (p.phases || []).map(ph => ph.name))
+    )].filter(Boolean);
+
+    // Sync modules and phases to Notion dropdown options
+    let moduleResult = null;
+    let phaseResult = null;
+    try {
+      // Sync modules to "Affected Module" property
+      if (uniqueModules.length > 0) {
+        moduleResult = await notion.syncSelectOptionsToDatabase(
+          settings.notionDatabaseId,
+          'Affected Module',
+          uniqueModules
+        );
+      }
+
+      // Sync phases to both "Suggested Phase" and "Assigned Phase" properties
+      if (uniquePhases.length > 0) {
+        const [suggested, assigned] = await Promise.all([
+          notion.syncSelectOptionsToDatabase(settings.notionDatabaseId, 'Suggested Phase', uniquePhases),
+          notion.syncSelectOptionsToDatabase(settings.notionDatabaseId, 'Assigned Phase', uniquePhases)
+        ]);
+        phaseResult = {
+          suggestedPhase: suggested,
+          assignedPhase: assigned
+        };
+      }
+    } catch (syncError) {
+      console.warn('Failed to sync module/phase options:', syncError.message);
+    }
+
     // Sync project slugs to dedicated Notion page
     let slugsPageResult = null;
     try {
@@ -49,17 +86,36 @@ export async function POST() {
       console.warn('Failed to sync project slugs page:', pageError.message);
     }
 
+    // Build summary message
+    const messages = [];
+    if (result.added.length > 0) {
+      messages.push(`${result.added.length} project(s)`);
+    }
+    if (moduleResult?.added?.length > 0) {
+      messages.push(`${moduleResult.added.length} module(s)`);
+    }
+    if (phaseResult?.suggestedPhase?.added?.length > 0) {
+      messages.push(`${phaseResult.suggestedPhase.added.length} phase(s)`);
+    }
+
     return NextResponse.json({
       success: true,
-      added: result.added,
-      existing: result.existing,
+      projects: {
+        added: result.added,
+        existing: result.existing
+      },
+      modules: moduleResult ? {
+        added: moduleResult.added,
+        existing: moduleResult.existing
+      } : null,
+      phases: phaseResult,
       slugsPage: slugsPageResult ? {
         pageId: slugsPageResult.pageId,
         created: slugsPageResult.created
       } : null,
-      message: result.added.length > 0
-        ? `Added ${result.added.length} project(s) to Notion: ${result.added.join(', ')}`
-        : 'All projects already synced to Notion'
+      message: messages.length > 0
+        ? `Added ${messages.join(', ')} to Notion`
+        : 'All projects, modules, and phases already synced to Notion'
     });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

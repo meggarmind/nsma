@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Clock, CheckCircle, XCircle, AlertTriangle, Info, Filter } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertTriangle, Info, Filter, ArrowDown, ArrowUp, RotateCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
+import Button from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 
 // Log level configuration
@@ -19,6 +20,7 @@ export default function Logs() {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState('all');
+  const [retrying, setRetrying] = useState(null); // projectId being retried
 
   const loadLogs = useCallback(async () => {
     try {
@@ -39,6 +41,29 @@ export default function Logs() {
     const interval = setInterval(loadLogs, 30000);
     return () => clearInterval(interval);
   }, [loadLogs]);
+
+  const handleRetry = async (projectId) => {
+    setRetrying(projectId);
+    try {
+      const res = await fetch('/api/logs/retry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        console.error('Retry failed:', data.error);
+      }
+
+      // Reload logs to show new result
+      await loadLogs();
+    } catch (error) {
+      console.error('Retry failed:', error);
+    } finally {
+      setRetrying(null);
+    }
+  };
 
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
@@ -70,17 +95,29 @@ export default function Logs() {
     return (log.imported || 0) + (log.updated || 0);
   };
 
-  // Get operation badge
+  // Get operation badge with directional indicator
   const getOperationBadge = (log) => {
     const operation = log.operation || (log.action === 'reverse-sync' ? 'reverse-sync' : 'sync');
     const variants = {
-      'sync': { label: 'Sync', variant: 'info' },
-      'reverse-sync': { label: 'Reverse Sync', variant: 'secondary' },
-      'expand': { label: 'AI Expand', variant: 'success' },
-      'import': { label: 'Import', variant: 'warning' }
+      'sync': {
+        label: 'Notion → Files',
+        variant: 'info',
+        icon: <ArrowDown size={12} className="inline mr-1" />
+      },
+      'reverse-sync': {
+        label: 'Files → Notion',
+        variant: 'secondary',
+        icon: <ArrowUp size={12} className="inline mr-1" />
+      },
+      'expand': { label: 'AI Expand', variant: 'success', icon: null },
+      'import': { label: 'Import', variant: 'warning', icon: null }
     };
     const config = variants[operation] || variants.sync;
-    return <Badge variant={config.variant}>{config.label}</Badge>;
+    return (
+      <Badge variant={config.variant} className="flex items-center gap-1">
+        {config.icon}{config.label}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -122,9 +159,9 @@ export default function Logs() {
           {logs.map((log, index) => (
             <Card key={index}>
               <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 flex-1">
                   {getLogIcon(log)}
-                  <div>
+                  <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
                       <h3 className="text-lg font-semibold text-dark-50">
                         {log.projectName}
@@ -215,6 +252,24 @@ export default function Logs() {
                           ))}
                         </ul>
                       </details>
+                    )}
+
+                    {/* Retry button for failed reverse syncs */}
+                    {(log.operation === 'reverse-sync' || log.action === 'reverse-sync') &&
+                     log.failed > 0 &&
+                     log.projectId && (
+                      <div className="mt-4">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleRetry(log.projectId)}
+                          disabled={retrying === log.projectId}
+                          className="flex items-center gap-2"
+                        >
+                          <RotateCw size={14} className={retrying === log.projectId ? 'animate-spin' : ''} />
+                          {retrying === log.projectId ? 'Retrying...' : 'Retry Failed Sync'}
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </div>
