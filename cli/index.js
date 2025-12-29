@@ -444,6 +444,13 @@ async function main() {
 
         console.log(`\n✅ ${cycleType} sync completed: ${totalImported} items imported, ${totalErrors} errors`);
 
+        // Step 3: Refresh all project stats from disk
+        try {
+          await configWatcher.refreshAllStats();
+        } catch (statsErr) {
+          console.error(`⚠️ Stats refresh failed: ${statsErr.message}`);
+        }
+
       } catch (err) {
         // Critical error - log to both console and structured logs
         console.error(`❌ ${cycleType} sync failed: ${err.message}`);
