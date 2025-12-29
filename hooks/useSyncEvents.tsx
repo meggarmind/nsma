@@ -3,11 +3,26 @@
 import { useEffect, useRef } from 'react';
 import { useToast } from './useToast';
 import { useStatus } from './useAppData';
+import type { SyncStatus, SyncMetrics } from '@/types';
+
+interface UseSyncEventsOptions {
+  /** Whether to enable notifications */
+  enabled?: boolean;
+}
+
+interface UseSyncEventsReturn {
+  /** Last sync information */
+  lastSync: SyncMetrics['lastSync'] | null;
+  /** Current sync status */
+  status: SyncStatus | null;
+  /** Whether the hook is polling (always false - uses centralized polling) */
+  isPolling: boolean;
+}
 
 /**
  * Hook to detect and notify about background sync events
  *
- * Now uses centralized status from useAppData instead of its own polling.
+ * Uses centralized status from useAppData instead of its own polling.
  * Reacts to status changes and shows toast notifications when new syncs complete.
  *
  * Features:
@@ -15,19 +30,15 @@ import { useStatus } from './useAppData';
  * - Tracks last known sync timestamp to detect changes
  * - Debounces notifications to prevent spam
  * - Shows appropriate toast type based on sync result (success/warning/error)
- *
- * @param {Object} options - Configuration options
- * @param {boolean} [options.enabled=true] - Whether to enable notifications
- * @returns {Object} - { lastSync, status, isPolling }
  */
-export function useSyncEvents(options = {}) {
+export function useSyncEvents(options: UseSyncEventsOptions = {}): UseSyncEventsReturn {
   const { enabled = true } = options;
 
   const { showToast } = useToast();
   const { status, lastSync } = useStatus();
 
   // Use refs to track state across renders
-  const lastKnownSyncRef = useRef(null);
+  const lastKnownSyncRef = useRef<string | null>(null);
   const hasInitializedRef = useRef(false);
   const lastNotificationTimeRef = useRef(0);
 
@@ -65,8 +76,16 @@ export function useSyncEvents(options = {}) {
       lastNotificationTimeRef.current = now;
 
       // Determine notification type and message
-      const { imported, updated, errors } = status.metrics?.lastSync || {};
-      const totalProcessed = (imported || 0) + (updated || 0);
+      const syncData = status.metrics?.lastSync as {
+        imported?: number;
+        updated?: number;
+        errors?: number;
+      } | undefined;
+
+      const imported = syncData?.imported || 0;
+      const updated = syncData?.updated || 0;
+      const errors = syncData?.errors || 0;
+      const totalProcessed = imported + updated;
 
       if (errors > 0) {
         showToast(
@@ -87,8 +106,8 @@ export function useSyncEvents(options = {}) {
 
   return {
     lastSync: status?.metrics?.lastSync || lastSync || null,
-    status,
-    isPolling: false  // No longer doing its own polling
+    status: status as SyncStatus | null,
+    isPolling: false // No longer doing its own polling
   };
 }
 

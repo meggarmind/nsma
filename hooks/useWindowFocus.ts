@@ -9,9 +9,9 @@ import { useState, useEffect } from 'react';
  * Useful for adjusting polling intervals or pausing activity when
  * the user isn't actively viewing the page.
  *
- * @returns {boolean} - Whether the window is currently focused
+ * @returns Whether the window is currently focused
  */
-export function useWindowFocus() {
+export function useWindowFocus(): boolean {
   const [focused, setFocused] = useState(true);
 
   useEffect(() => {

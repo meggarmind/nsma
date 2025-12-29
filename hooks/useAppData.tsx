@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { useWindowFocus } from './useWindowFocus';
+import type { Project, InboxData, SyncStatus, SyncMetrics } from '@/types';
 
 /**
  * Centralized polling configuration
@@ -15,27 +16,82 @@ const POLLING_CONFIG = {
 };
 
 /**
- * Request deduplication - tracks in-flight requests
+ * Request deduplication - tracks in-flight requests with TTL
  * Prevents duplicate requests when multiple components mount simultaneously
+ * Includes TTL-based cleanup to prevent memory leaks if promises reject unexpectedly
  */
-const inFlightRequests = new Map();
+interface InFlightRequest {
+  promise: Promise<unknown>;
+  timestamp: number;
+}
 
-async function fetchWithDedup(url) {
-  // Return existing promise if request is in-flight
-  if (inFlightRequests.has(url)) {
-    return inFlightRequests.get(url);
+const inFlightRequests = new Map<string, InFlightRequest>();
+const REQUEST_TTL = 30000; // 30 seconds max lifetime for any request entry
+
+async function fetchWithDedup<T>(url: string): Promise<T> {
+  const now = Date.now();
+
+  // Check for existing in-flight request
+  const existing = inFlightRequests.get(url);
+  if (existing && (now - existing.timestamp) < REQUEST_TTL) {
+    return existing.promise as Promise<T>;
   }
 
-  // Create new request
+  // Clean up any stale entries (safety mechanism)
+  if (existing) {
+    inFlightRequests.delete(url);
+  }
+
+  // Create new request with timestamp tracking
   const promise = fetch(url)
     .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
     .finally(() => inFlightRequests.delete(url));
 
-  inFlightRequests.set(url, promise);
-  return promise;
+  inFlightRequests.set(url, { promise, timestamp: now });
+  return promise as Promise<T>;
 }
 
-const AppDataContext = createContext(null);
+// =============================================================================
+// Types
+// =============================================================================
+
+interface AppDataState {
+  projects: Project[];
+  status: SyncStatus | null;
+  inbox: InboxData;
+  isLoading: boolean;
+  errors: Record<string, string | null>;
+}
+
+type DataType = 'projects' | 'status' | 'inbox';
+
+interface AppDataContextValue {
+  // Data
+  projects: Project[];
+  status: SyncStatus | null;
+  inbox: InboxData;
+  isLoading: boolean;
+  errors: Record<string, string | null>;
+
+  // Actions
+  refresh: (type: DataType) => Promise<unknown>;
+  refreshAll: () => Promise<void>;
+
+  // Derived data (convenience selectors)
+  inboxCount: number;
+  daemonRunning: boolean;
+  lastSync: SyncMetrics['lastSync'] | null;
+}
+
+const AppDataContext = createContext<AppDataContextValue | null>(null);
+
+// =============================================================================
+// Provider
+// =============================================================================
+
+interface AppDataProviderProps {
+  children: ReactNode;
+}
 
 /**
  * AppDataProvider - Centralized data polling and state management
@@ -46,14 +102,14 @@ const AppDataContext = createContext(null);
  * - Request deduplication
  * - Shared state across all components
  */
-export function AppDataProvider({ children }) {
+export function AppDataProvider({ children }: AppDataProviderProps) {
   const isFocused = useWindowFocus();
 
   // Centralized state for all polled data
-  const [data, setData] = useState({
+  const [data, setData] = useState<AppDataState>({
     projects: [],
     status: null,
-    inbox: { items: [], stats: {}, count: 0 },
+    inbox: { items: [], stats: { total: 0, processed: 0, pending: 0 }, count: 0 },
     isLoading: true,
     errors: {}
   });
@@ -64,9 +120,9 @@ export function AppDataProvider({ children }) {
   /**
    * Fetch a specific data type with error handling
    */
-  const fetchDataType = useCallback(async (type, url) => {
+  const fetchDataType = useCallback(async <T,>(type: DataType, url: string): Promise<T | null> => {
     try {
-      const result = await fetchWithDedup(url);
+      const result = await fetchWithDedup<T>(url);
       setData(prev => ({
         ...prev,
         [type]: result,
@@ -77,7 +133,7 @@ export function AppDataProvider({ children }) {
       console.error(`Failed to fetch ${type}:`, error);
       setData(prev => ({
         ...prev,
-        errors: { ...prev.errors, [type]: error.message }
+        errors: { ...prev.errors, [type]: (error as Error).message }
       }));
       return null;
     }
@@ -92,9 +148,9 @@ export function AppDataProvider({ children }) {
     }
 
     await Promise.all([
-      fetchDataType('projects', '/api/projects'),
-      fetchDataType('status', '/api/status'),
-      fetchDataType('inbox', '/api/inbox'),
+      fetchDataType<Project[]>('projects', '/api/projects'),
+      fetchDataType<SyncStatus>('status', '/api/status'),
+      fetchDataType<InboxData>('inbox', '/api/inbox'),
     ]);
 
     initialFetchDone.current = true;
@@ -104,8 +160,8 @@ export function AppDataProvider({ children }) {
   /**
    * Manual refresh for specific data type
    */
-  const refresh = useCallback(async (type) => {
-    const urls = {
+  const refresh = useCallback(async (type: DataType): Promise<unknown> => {
+    const urls: Record<DataType, string> = {
       projects: '/api/projects',
       status: '/api/status',
       inbox: '/api/inbox',
@@ -134,8 +190,8 @@ export function AppDataProvider({ children }) {
       : POLLING_CONFIG.blurredInterval;
 
     const timer = setInterval(() => {
-      fetchDataType('projects', '/api/projects');
-      fetchDataType('inbox', '/api/inbox');
+      fetchDataType<Project[]>('projects', '/api/projects');
+      fetchDataType<InboxData>('inbox', '/api/inbox');
     }, interval);
 
     return () => clearInterval(timer);
@@ -148,13 +204,13 @@ export function AppDataProvider({ children }) {
       : POLLING_CONFIG.blurredInterval;
 
     const timer = setInterval(() => {
-      fetchDataType('status', '/api/status');
+      fetchDataType<SyncStatus>('status', '/api/status');
     }, statusInterval);
 
     return () => clearInterval(timer);
   }, [isFocused, fetchDataType]);
 
-  const value = {
+  const value: AppDataContextValue = {
     // Data
     projects: data.projects,
     status: data.status,
@@ -179,10 +235,14 @@ export function AppDataProvider({ children }) {
   );
 }
 
+// =============================================================================
+// Hooks
+// =============================================================================
+
 /**
  * Hook to access all app data
  */
-export function useAppData() {
+export function useAppData(): AppDataContextValue {
   const context = useContext(AppDataContext);
   if (!context) {
     throw new Error('useAppData must be used within an AppDataProvider');
@@ -226,7 +286,7 @@ export function useInbox() {
   return {
     inbox,
     items: inbox?.items || [],
-    stats: inbox?.stats || {},
+    stats: inbox?.stats || { total: 0, processed: 0, pending: 0 },
     count: inboxCount,
     error: errors.inbox,
     refresh: () => refresh('inbox')

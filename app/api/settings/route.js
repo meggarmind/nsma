@@ -5,10 +5,13 @@ import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
 export async function GET() {
   try {
     const settings = await getSettings();
-    // Mask token for security
+    // Mask tokens completely - don't expose any characters
     return jsonWithCache({
       ...settings,
-      notionToken: settings.notionToken ? '••••••••' + settings.notionToken.slice(-4) : ''
+      notionToken: settings.notionToken ? '••••••••••••' : '',
+      anthropicApiKey: settings.anthropicApiKey ? '••••••••••••' : '',
+      hasNotionToken: !!settings.notionToken,
+      hasAnthropicKey: !!settings.anthropicApiKey
     }, { maxAge: CACHE_DURATIONS.settings });
   } catch (error) {
     return jsonError(error.message);
