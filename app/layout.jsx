@@ -1,6 +1,6 @@
 import './globals.css';
 import Sidebar from '@/components/layout/Sidebar';
-import { ToastProvider } from '@/hooks/useToast';
+import ClientProviders from '@/components/providers/ClientProviders';
 import { getProjects } from '@/lib/storage';
 
 export const metadata = {
@@ -9,19 +9,20 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
+  // Server-side initial project load for Sidebar static content
   const projects = await getProjects();
 
   return (
     <html lang="en">
       <body>
-        <ToastProvider>
+        <ClientProviders>
           <div className="flex min-h-screen">
             <Sidebar projects={projects} />
             <main className="flex-1 p-8 overflow-y-auto">
               {children}
             </main>
           </div>
-        </ToastProvider>
+        </ClientProviders>
       </body>
     </html>
   );

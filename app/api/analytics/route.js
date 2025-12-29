@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { getAnalyticsData } from '@/lib/analytics';
+import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
 
 export async function GET(request) {
   try {
@@ -9,19 +9,13 @@ export async function GET(request) {
     // Validate range parameter
     const validRanges = ['7d', '30d', '90d', 'all'];
     if (!validRanges.includes(range)) {
-      return NextResponse.json(
-        { error: 'Invalid range. Use: 7d, 30d, 90d, or all' },
-        { status: 400 }
-      );
+      return jsonError('Invalid range. Use: 7d, 30d, 90d, or all', 400);
     }
 
     const data = await getAnalyticsData(range);
-    return NextResponse.json(data);
+    return jsonWithCache(data, { maxAge: CACHE_DURATIONS.analytics });
   } catch (error) {
     console.error('Analytics API error:', error);
-    return NextResponse.json(
-      { error: error.message },
-      { status: 500 }
-    );
+    return jsonError(error.message);
   }
 }

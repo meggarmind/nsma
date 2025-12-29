@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getProjects, createProject, getSettings, countPrompts, updateProject } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
+import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
 
 export async function GET(request) {
   try {
@@ -19,11 +20,13 @@ export async function GET(request) {
           await updateProject(project.id, { stats });
         }
       }
+      // No cache for refresh requests (force fresh data)
+      return NextResponse.json(projects);
     }
 
-    return NextResponse.json(projects);
+    return jsonWithCache(projects, { maxAge: CACHE_DURATIONS.projects });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message);
   }
 }
 

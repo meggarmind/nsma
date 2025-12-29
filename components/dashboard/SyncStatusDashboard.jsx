@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import {
   Activity,
   CheckCircle,
@@ -13,34 +12,18 @@ import {
   TrendingUp
 } from 'lucide-react';
 import Card from '../ui/Card';
+import { useStatus } from '@/hooks/useAppData';
 
 /**
  * Sync Status Dashboard - shows daemon status, last sync details, and health metrics
+ *
+ * Uses centralized polling from useAppData instead of its own polling loop.
  */
 export default function SyncStatusDashboard() {
-  const [status, setStatus] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { status, error, refresh } = useStatus();
 
-  useEffect(() => {
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchStatus = async () => {
-    try {
-      const res = await fetch('/api/status');
-      if (!res.ok) throw new Error('Failed to fetch status');
-      const data = await res.json();
-      setStatus(data);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Derive loading state from whether we have status data
+  const loading = !status;
 
   const formatRelativeTime = (timestamp) => {
     if (!timestamp) return 'Never';
@@ -159,18 +142,18 @@ export default function SyncStatusDashboard() {
           )}
         </div>
 
-        {/* Last Sync */}
+        {/* Last Check & Last Sync */}
         <div className="p-4 bg-dark-800/50 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <Clock className="w-4 h-4 text-dark-500" />
-            <span className="text-sm text-dark-500">Last Sync</span>
+            <span className="text-sm text-dark-500">Last Check</span>
           </div>
           <p className="font-semibold text-dark-50">
-            {formatRelativeTime(lastSync?.timestamp)}
+            {formatRelativeTime(status.lastCheckAt)}
           </p>
-          {lastSync && (
-            <p className="text-xs text-dark-600 mt-1">
-              {lastSync.processed || 0} items processed
+          {lastSync?.timestamp && (
+            <p className="text-xs text-dark-600 mt-1" title={`Items synced: ${lastSync.processed || 0}`}>
+              Last activity: {formatRelativeTime(lastSync.timestamp)}
             </p>
           )}
         </div>
@@ -215,7 +198,7 @@ export default function SyncStatusDashboard() {
           Auto-sync interval: <span className="text-dark-300">{syncIntervalMinutes} minutes</span>
         </p>
         <button
-          onClick={fetchStatus}
+          onClick={refresh}
           className="flex items-center gap-1.5 text-sm text-dark-400 hover:text-dark-200 transition-colors"
         >
           <RefreshCw className="w-3.5 h-3.5" />

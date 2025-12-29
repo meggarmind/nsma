@@ -1,35 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Inbox, AlertCircle, ArrowRight } from 'lucide-react';
+import { useInbox } from '@/hooks/useAppData';
 
+/**
+ * InboxCard - Shows inbox status on the dashboard
+ *
+ * Uses centralized polling from useAppData instead of its own polling loop.
+ */
 export default function InboxCard() {
   const router = useRouter();
-  const [stats, setStats] = useState({ pending: 0 });
-  const [loading, setLoading] = useState(true);
+  const { stats, count } = useInbox();
 
-  useEffect(() => {
-    fetchInboxStats();
-    const interval = setInterval(fetchInboxStats, 30000); // Auto-refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchInboxStats = async () => {
-    try {
-      const res = await fetch('/api/inbox');
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data.stats);
-      }
-    } catch (error) {
-      console.error('Failed to fetch inbox stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const pendingCount = stats.pending || 0;
+  // Derive loading state from whether we have data
+  const loading = !stats;
+  const pendingCount = stats?.pending || count || 0;
 
   return (
     <div

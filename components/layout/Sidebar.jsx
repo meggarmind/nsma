@@ -1,33 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {  FolderSync, LayoutDashboard, Settings, FileText, FolderOpen, Plus, Inbox, BarChart3 } from 'lucide-react';
+import { FolderSync, LayoutDashboard, Settings, FileText, FolderOpen, Plus, Inbox, BarChart3 } from 'lucide-react';
 import Badge from '../ui/Badge';
+import { useInbox } from '@/hooks/useAppData';
 
+/**
+ * Sidebar navigation component
+ *
+ * Uses centralized polling from useAppData for inbox count
+ * instead of its own polling loop.
+ */
 export default function Sidebar({ projects = [] }) {
   const pathname = usePathname();
-  const [inboxCount, setInboxCount] = useState(0);
-
-  useEffect(() => {
-    const fetchInboxCount = async () => {
-      try {
-        const res = await fetch('/api/inbox');
-        if (res.ok) {
-          const data = await res.json();
-          setInboxCount(data.count || 0);
-        }
-      } catch (error) {
-        console.error('Failed to fetch inbox count:', error);
-      }
-    };
-
-    fetchInboxCount();
-    // Refresh every 60 seconds
-    const interval = setInterval(fetchInboxCount, 60000);
-    return () => clearInterval(interval);
-  }, []);
+  const { count: inboxCount } = useInbox();
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },

@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
 import { getLogs } from '@/lib/storage';
+import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
 
 /**
  * GET /api/logs
@@ -16,15 +16,12 @@ export async function GET(request) {
 
     // Validate level if provided
     if (level && !['info', 'warn', 'error'].includes(level)) {
-      return NextResponse.json(
-        { error: 'Invalid level. Must be: info, warn, or error' },
-        { status: 400 }
-      );
+      return jsonError('Invalid level. Must be: info, warn, or error', 400);
     }
 
     const logs = await getLogs(limit, level);
-    return NextResponse.json(logs.reverse()); // Most recent first
+    return jsonWithCache(logs.reverse(), { maxAge: CACHE_DURATIONS.logs }); // Most recent first
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message);
   }
 }

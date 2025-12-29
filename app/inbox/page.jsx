@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Inbox,
@@ -9,53 +9,37 @@ import {
   AlertCircle
 } from 'lucide-react';
 import InboxList from '@/components/inbox/InboxList';
+import { useInbox, useProjects, useAppData } from '@/hooks/useAppData';
 
+/**
+ * Inbox Page
+ *
+ * Uses centralized polling from useAppData for inbox items and projects.
+ * Local state only used for UI actions (syncing, assignment).
+ */
 export default function InboxPage() {
   const router = useRouter();
-  const [items, setItems] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [loading, setLoading] = useState(true);
+
+  // Use centralized data - no more local polling
+  const { items, error: inboxError, refresh: refreshInbox } = useInbox();
+  const { projects } = useProjects();
+  const { refreshAll } = useAppData();
+
+  // Local UI state
   const [syncing, setSyncing] = useState(false);
-  const [error, setError] = useState(null);
+  const [localItems, setLocalItems] = useState(null); // Track optimistic updates
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => fetchData(false), 30000); // Auto-refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchData = async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    setError(null);
-
-    try {
-      const [inboxRes, projectsRes] = await Promise.all([
-        fetch('/api/inbox'),
-        fetch('/api/projects')
-      ]);
-
-      if (inboxRes.ok) {
-        const inboxData = await inboxRes.json();
-        setItems(inboxData.items || []);
-      }
-
-      if (projectsRes.ok) {
-        const projectsData = await projectsRes.json();
-        setProjects(projectsData || []);
-      }
-    } catch (err) {
-      setError('Failed to load inbox data');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Use local items if set (optimistic update), otherwise use centralized items
+  const displayItems = localItems !== null ? localItems : items;
+  const loading = !items;
+  const error = inboxError;
 
   const handleSync = async () => {
     setSyncing(true);
     try {
       await fetch('/api/sync', { method: 'POST' });
-      await fetchData();
+      await refreshAll();
+      setLocalItems(null); // Reset to use centralized state
     } catch (err) {
       console.error('Sync failed:', err);
     } finally {
@@ -75,8 +59,17 @@ export default function InboxPage() {
       throw new Error(data.error || 'Failed to assign item');
     }
 
-    // Remove item from list
-    setItems(prev => prev.filter(i => i.id !== itemId));
+    // Optimistic update: remove item from local display immediately
+    const currentItems = localItems !== null ? localItems : items;
+    setLocalItems(currentItems.filter(i => i.id !== itemId));
+
+    // Then refresh centralized state in background
+    refreshInbox();
+  };
+
+  const handleRefresh = async () => {
+    await refreshInbox();
+    setLocalItems(null); // Reset to use centralized state
   };
 
   return (
@@ -100,7 +93,7 @@ export default function InboxPage() {
                 <div>
                   <h1 className="text-xl font-semibold text-white">Inbox</h1>
                   <p className="text-sm text-gray-400">
-                    {items.length} item{items.length !== 1 ? 's' : ''} awaiting assignment
+                    {displayItems?.length || 0} item{displayItems?.length !== 1 ? 's' : ''} awaiting assignment
                   </p>
                 </div>
               </div>
@@ -144,10 +137,10 @@ export default function InboxPage() {
           </div>
         ) : (
           <InboxList
-            items={items}
-            projects={projects}
+            items={displayItems || []}
+            projects={projects || []}
             onAssign={handleAssign}
-            onRefresh={fetchData}
+            onRefresh={handleRefresh}
           />
         )}
       </main>

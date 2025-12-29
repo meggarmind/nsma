@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useMemo } from 'react';
 import { FolderPlus, Search, CheckSquare, Square, RefreshCw, ArrowDown, X } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import { useSyncEvents } from '@/hooks/useSyncEvents';
+import { useProjects, useAppData } from '@/hooks/useAppData';
 import Header from '@/components/layout/Header';
 import StatsOverview from '@/components/dashboard/StatsOverview';
 import SyncBanner from '@/components/dashboard/SyncBanner';
@@ -14,19 +15,27 @@ import EmptyState from '@/components/ui/EmptyState';
 import Button from '@/components/ui/Button';
 import AddProjectWizard from '@/components/wizard/AddProjectWizard';
 
+/**
+ * Main Dashboard page
+ *
+ * Uses centralized polling from useAppData for projects list.
+ * Polling is handled by the provider - no local setInterval needed.
+ */
 export default function Dashboard() {
   const { showToast } = useToast();
 
-  // Enable background sync event detection with toast notifications
-  // Polls faster (5s) when window is focused, slower (30s) when blurred
-  useSyncEvents({ focusedInterval: 5000, blurredInterval: 30000 });
+  // Use centralized data - no more local polling
+  const { projects, refresh: refreshProjects } = useProjects();
+  const { refreshAll } = useAppData();
 
-  const [projects, setProjects] = useState([]);
+  // Enable background sync event detection with toast notifications
+  useSyncEvents();
+
+  // Local UI state (not data state)
   const [syncing, setSyncing] = useState(false);
   const [syncingProjects, setSyncingProjects] = useState(new Set());
   const [refreshingProjects, setRefreshingProjects] = useState(new Set());
   const [reverseSyncingProjects, setReverseSyncingProjects] = useState(new Set());
-  const [lastSync, setLastSync] = useState(null);
   const [showWizard, setShowWizard] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // 'all', 'active', 'paused'
@@ -35,23 +44,12 @@ export default function Dashboard() {
   const [bulkSyncing, setBulkSyncing] = useState(false);
   const [bulkRefreshing, setBulkRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadProjects();
-    const interval = setInterval(loadProjects, 30000); // Auto-refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadProjects = async () => {
-    const res = await fetch('/api/projects');
-    const data = await res.json();
-    setProjects(data);
-
-    // Get last sync from most recent project
-    const sorted = data.sort((a, b) => new Date(b.lastSyncAt) - new Date(a.lastSyncAt));
-    if (sorted[0]?.lastSyncAt) {
-      setLastSync(sorted[0].lastSyncAt);
-    }
-  };
+  // Derive lastSync from projects (most recent)
+  const lastSync = useMemo(() => {
+    if (!projects || projects.length === 0) return null;
+    const sorted = [...projects].sort((a, b) => new Date(b.lastSyncAt) - new Date(a.lastSyncAt));
+    return sorted[0]?.lastSyncAt || null;
+  }, [projects]);
 
   const handleSyncAll = async () => {
     setSyncing(true);
@@ -66,8 +64,7 @@ export default function Dashboard() {
 
       const total = data.results?.reduce((sum, r) => sum + r.processed, 0) || 0;
       showToast(`Sync complete! Processed ${total} items`, 'success');
-      setLastSync(new Date().toISOString());
-      await loadProjects();
+      await refreshProjects();
     } catch (error) {
       showToast(error.message || 'Network error', 'error');
     } finally {
@@ -87,7 +84,7 @@ export default function Dashboard() {
       }
 
       showToast('Project synced successfully', 'success');
-      await loadProjects();
+      await refreshProjects();
     } catch (error) {
       showToast(error.message || 'Network error', 'error');
     } finally {
@@ -106,7 +103,7 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ active })
       });
-      await loadProjects();
+      await refreshProjects();
     } catch (error) {
       console.error('Update failed:', error);
     }
@@ -124,7 +121,7 @@ export default function Dashboard() {
       }
 
       showToast('Stats refreshed from disk', 'success');
-      await loadProjects();
+      await refreshProjects();
     } catch (error) {
       showToast(error.message || 'Network error', 'error');
     } finally {
@@ -138,6 +135,7 @@ export default function Dashboard() {
 
   const handleRefreshAllStats = async () => {
     try {
+      // Trigger disk refresh via API then update centralized state
       const res = await fetch('/api/projects?refresh=true');
       const data = await res.json();
 
@@ -146,7 +144,8 @@ export default function Dashboard() {
         return;
       }
 
-      setProjects(data);
+      // Refresh centralized state to pick up changes
+      await refreshProjects();
       showToast('All stats refreshed from disk', 'success');
     } catch (error) {
       showToast(error.message || 'Network error', 'error');
@@ -173,7 +172,7 @@ export default function Dashboard() {
         showToast('No files needed syncing', 'info');
       }
 
-      await loadProjects();
+      await refreshProjects();
     } catch (error) {
       showToast(error.message || 'Network error', 'error');
     } finally {
@@ -187,7 +186,7 @@ export default function Dashboard() {
 
   const handleWizardSuccess = async () => {
     showToast('Project created successfully', 'success');
-    await loadProjects();
+    await refreshProjects();
   };
 
   // Selection handlers
@@ -237,7 +236,7 @@ export default function Dashboard() {
         showToast(`Successfully synced ${succeeded} projects`, 'success');
       }
 
-      await loadProjects();
+      await refreshProjects();
       handleClearSelection();
     } catch (error) {
       showToast('Bulk sync failed', 'error');
@@ -263,7 +262,7 @@ export default function Dashboard() {
       const succeeded = results.filter(r => r.status === 'fulfilled' && !r.value.error).length;
       showToast(`Refreshed stats for ${succeeded} projects`, 'success');
 
-      await loadProjects();
+      await refreshProjects();
       handleClearSelection();
     } catch (error) {
       showToast('Bulk refresh failed', 'error');

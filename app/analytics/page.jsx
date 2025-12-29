@@ -4,10 +4,14 @@ import { useState, useEffect } from 'react';
 import { Activity, FileText, CheckCircle, AlertTriangle, TrendingUp, Zap } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import StatCard from '@/components/analytics/StatCard';
-import SyncActivityChart from '@/components/analytics/SyncActivityChart';
-import ItemDistributionChart from '@/components/analytics/ItemDistributionChart';
-import ProjectComparisonChart from '@/components/analytics/ProjectComparisonChart';
 import DateRangeSelector from '@/components/analytics/DateRangeSelector';
+
+// Dynamic imports for recharts components (~396KB loaded only when this page is visited)
+import {
+  DynamicSyncActivityChart as SyncActivityChart,
+  DynamicItemDistributionChart as ItemDistributionChart,
+  DynamicProjectComparisonChart as ProjectComparisonChart
+} from '@/components/analytics/DynamicCharts';
 
 export default function AnalyticsPage() {
   const [range, setRange] = useState('30d');

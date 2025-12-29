@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getSettings, saveSettings } from '@/lib/storage';
+import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
 
 export async function GET() {
   try {
     const settings = await getSettings();
     // Mask token for security
-    return NextResponse.json({
+    return jsonWithCache({
       ...settings,
       notionToken: settings.notionToken ? '••••••••' + settings.notionToken.slice(-4) : ''
-    });
+    }, { maxAge: CACHE_DURATIONS.settings });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message);
   }
 }
 
@@ -23,8 +24,8 @@ export async function PUT(request) {
       body.notionToken = current.notionToken;
     }
     const settings = await saveSettings(body);
-    return NextResponse.json(settings);
+    return NextResponse.json(settings); // No cache for mutations
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return jsonError(error.message);
   }
 }
