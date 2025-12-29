@@ -3,7 +3,7 @@
 import InboxItem from './InboxItem';
 import { CheckCircle2 } from 'lucide-react';
 
-export default function InboxList({ items, projects, onAssign, onRefresh }) {
+export default function InboxList({ items, projects, onAssign, onDelete, onArchive, onRefresh }) {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 px-4">
@@ -27,6 +27,8 @@ export default function InboxList({ items, projects, onAssign, onRefresh }) {
           item={item}
           projects={projects}
           onAssign={onAssign}
+          onDelete={onDelete}
+          onArchive={onArchive}
         />
       ))}
     </div>

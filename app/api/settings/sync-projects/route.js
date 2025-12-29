@@ -76,7 +76,8 @@ async function handlePost() {
         projects.map(p => ({
           name: p.name,
           slug: p.slug,
-          modules: (p.modules || []).map(m => m.name).join(', ')
+          modules: (p.modules || []).map(m => m.name).join(', '),
+          phases: (p.phases || []).map(ph => ph.name).join(', ')
         })),
         settings.projectSlugsPageId || null
       );

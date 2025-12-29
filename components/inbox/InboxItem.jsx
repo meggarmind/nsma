@@ -9,14 +9,20 @@ import {
   ChevronDown,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Archive
 } from 'lucide-react';
 
-export default function InboxItem({ item, projects, onAssign }) {
+export default function InboxItem({ item, projects, onAssign, onDelete, onArchive }) {
   const [selectedProject, setSelectedProject] = useState('');
   const [assigning, setAssigning] = useState(false);
   const [assigned, setAssigned] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
+  const [actionComplete, setActionComplete] = useState(null); // 'assigned' | 'deleted' | 'archived'
   const [error, setError] = useState(null);
+  const [showConfirm, setShowConfirm] = useState(null); // 'delete' | 'archive'
 
   const handleAssign = async () => {
     if (!selectedProject) return;
@@ -26,7 +32,7 @@ export default function InboxItem({ item, projects, onAssign }) {
 
     try {
       await onAssign(item.id, selectedProject);
-      setAssigned(true);
+      setActionComplete('assigned');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,12 +40,57 @@ export default function InboxItem({ item, projects, onAssign }) {
     }
   };
 
-  if (assigned) {
+  const handleDelete = async () => {
+    if (!onDelete) return;
+
+    setDeleting(true);
+    setError(null);
+    setShowConfirm(null);
+
+    try {
+      await onDelete(item.id);
+      setActionComplete('deleted');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!onArchive) return;
+
+    setArchiving(true);
+    setError(null);
+    setShowConfirm(null);
+
+    try {
+      await onArchive(item.id);
+      setActionComplete('archived');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  if (actionComplete) {
+    const messages = {
+      assigned: `Assigned to ${projects.find(p => p.id === selectedProject)?.name}`,
+      deleted: 'Item deleted',
+      archived: 'Item archived'
+    };
+    const colors = {
+      assigned: 'green',
+      deleted: 'red',
+      archived: 'amber'
+    };
+    const color = colors[actionComplete];
     return (
-      <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/10">
-        <div className="flex items-center gap-2 text-green-400">
+      <div className={`p-4 rounded-lg border border-${color}-500/30 bg-${color}-500/10`}>
+        <div className={`flex items-center gap-2 text-${color}-400`}>
           <CheckCircle2 className="w-5 h-5" />
-          <span>Assigned to {projects.find(p => p.id === selectedProject)?.name}</span>
+          <span>{messages[actionComplete]}</span>
         </div>
       </div>
     );
@@ -114,7 +165,7 @@ export default function InboxItem({ item, projects, onAssign }) {
               value={selectedProject}
               onChange={(e) => setSelectedProject(e.target.value)}
               className="appearance-none bg-dark-700 border border-dark-600 rounded-lg px-3 py-2 pr-8 text-sm text-white focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent cursor-pointer min-w-[160px]"
-              disabled={assigning}
+              disabled={assigning || deleting || archiving}
             >
               <option value="">Assign to...</option>
               {projects.filter(p => !p.isSystem).map((project) => (
@@ -128,7 +179,7 @@ export default function InboxItem({ item, projects, onAssign }) {
 
           <button
             onClick={handleAssign}
-            disabled={!selectedProject || assigning}
+            disabled={!selectedProject || assigning || deleting || archiving}
             className="px-4 py-2 bg-accent hover:bg-accent-dark disabled:bg-dark-700 disabled:text-gray-500 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
           >
             {assigning ? (
@@ -140,8 +191,69 @@ export default function InboxItem({ item, projects, onAssign }) {
               'Assign'
             )}
           </button>
+
+          {/* Archive button */}
+          {onArchive && (
+            <button
+              onClick={() => setShowConfirm('archive')}
+              disabled={assigning || deleting || archiving}
+              className="p-2 bg-dark-700 hover:bg-amber-500/20 disabled:opacity-50 text-gray-400 hover:text-amber-400 rounded-lg transition-colors"
+              title="Archive item"
+            >
+              {archiving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Archive className="w-4 h-4" />
+              )}
+            </button>
+          )}
+
+          {/* Delete button */}
+          {onDelete && (
+            <button
+              onClick={() => setShowConfirm('delete')}
+              disabled={assigning || deleting || archiving}
+              className="p-2 bg-dark-700 hover:bg-red-500/20 disabled:opacity-50 text-gray-400 hover:text-red-400 rounded-lg transition-colors"
+              title="Delete item"
+            >
+              {deleting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Trash2 className="w-4 h-4" />
+              )}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Confirmation dialog */}
+      {showConfirm && (
+        <div className="mt-3 p-3 bg-dark-900 border border-dark-600 rounded-lg">
+          <p className="text-sm text-gray-300 mb-3">
+            {showConfirm === 'delete'
+              ? 'Are you sure you want to delete this item? This cannot be undone.'
+              : 'Archive this item? It will be moved to the archived folder.'}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={showConfirm === 'delete' ? handleDelete : handleArchive}
+              className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
+                showConfirm === 'delete'
+                  ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                  : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+              }`}
+            >
+              {showConfirm === 'delete' ? 'Delete' : 'Archive'}
+            </button>
+            <button
+              onClick={() => setShowConfirm(null)}
+              className="px-3 py-1.5 bg-dark-700 text-gray-400 hover:text-white text-sm font-medium rounded transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400">

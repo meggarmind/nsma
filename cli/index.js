@@ -404,20 +404,65 @@ async function main() {
     console.log('📁 Starting config file watchers...');
     await configWatcher.watchAllProjects();
 
-    // Run initial config refresh and sync
-    console.log('\n📋 Initial config refresh...');
-    await configWatcher.refreshAllConfigs();
-    await processor.run().catch(err => console.error('Sync error:', err.message));
+    // Helper function to run a complete sync cycle
+    const runSyncCycle = async (isInitial = false) => {
+      const cycleType = isInitial ? 'Initial' : 'Scheduled';
+      console.log(`\n${'═'.repeat(60)}`);
+      console.log(`${isInitial ? '📋' : '⏰'} ${cycleType} sync at ${new Date().toLocaleString()}`);
+      console.log('═'.repeat(60));
+
+      try {
+        // Step 1: Refresh configs (non-blocking - errors don't stop sync)
+        try {
+          await configWatcher.refreshAllConfigs();
+        } catch (configErr) {
+          console.error(`⚠️ Config refresh failed: ${configErr.message}`);
+          // Continue with sync even if config refresh fails
+        }
+
+        // Step 2: Run the actual Notion sync (this is the critical part)
+        console.log('\n🔄 Starting Notion sync...');
+        const results = await processor.run();
+
+        // Log sync completion to structured logs (visible in UI)
+        const totalImported = results.reduce((sum, r) => sum + (r.imported || 0), 0);
+        const totalErrors = results.reduce((sum, r) => sum + (r.errors || 0), 0);
+
+        if (totalImported > 0 || totalErrors > 0) {
+          const logFn = totalErrors > 0 ? logWarn : logInfo;
+          await logFn({
+            operation: 'daemon-sync',
+            message: totalErrors > 0
+              ? `Daemon sync: ${totalImported} imported, ${totalErrors} errors`
+              : `Daemon sync: ${totalImported} items imported`,
+            imported: totalImported,
+            errors: totalErrors,
+            source: 'daemon',
+            cycleType
+          });
+        }
+
+        console.log(`\n✅ ${cycleType} sync completed: ${totalImported} items imported, ${totalErrors} errors`);
+
+      } catch (err) {
+        // Critical error - log to both console and structured logs
+        console.error(`❌ ${cycleType} sync failed: ${err.message}`);
+        await logWarn({
+          operation: 'daemon-sync-error',
+          message: `Daemon sync failed: ${err.message}`,
+          error: err.message,
+          source: 'daemon',
+          cycleType
+        });
+      }
+    };
+
+    // Run initial sync
+    await runSyncCycle(true);
 
     // Then run on interval
-    setInterval(async () => {
-      console.log(`\n⏰ Scheduled sync at ${new Date().toLocaleString()}\n`);
-
-      // Refresh configs before syncing (checks for changes)
-      await configWatcher.refreshAllConfigs();
-
-      // Run the sync
-      await processor.run().catch(err => console.error('Sync error:', err.message));
+    setInterval(() => {
+      runSyncCycle(false);
     }, intervalMs);
 
     // Handle graceful shutdown

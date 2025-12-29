@@ -67,6 +67,42 @@ export default function InboxPage() {
     refreshInbox();
   };
 
+  const handleDelete = async (itemId) => {
+    const res = await fetch(`/api/inbox/${itemId}/delete`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to delete item');
+    }
+
+    // Optimistic update: remove item from local display immediately
+    const currentItems = localItems !== null ? localItems : items;
+    setLocalItems(currentItems.filter(i => i.id !== itemId));
+
+    // Then refresh centralized state in background
+    refreshInbox();
+  };
+
+  const handleArchive = async (itemId) => {
+    const res = await fetch(`/api/inbox/${itemId}/archive`, {
+      method: 'POST'
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || 'Failed to archive item');
+    }
+
+    // Optimistic update: remove item from local display immediately
+    const currentItems = localItems !== null ? localItems : items;
+    setLocalItems(currentItems.filter(i => i.id !== itemId));
+
+    // Then refresh centralized state in background
+    refreshInbox();
+  };
+
   const handleRefresh = async () => {
     await refreshInbox();
     setLocalItems(null); // Reset to use centralized state
@@ -140,6 +176,8 @@ export default function InboxPage() {
             items={displayItems || []}
             projects={projects || []}
             onAssign={handleAssign}
+            onDelete={handleDelete}
+            onArchive={handleArchive}
             onRefresh={handleRefresh}
           />
         )}

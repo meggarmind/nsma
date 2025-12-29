@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import {
   Activity,
   CheckCircle,
@@ -12,6 +13,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import Card from '../ui/Card';
+import IssuesModal from './IssuesModal';
 import { useStatus } from '@/hooks/useAppData';
 
 /**
@@ -21,6 +23,7 @@ import { useStatus } from '@/hooks/useAppData';
  */
 export default function SyncStatusDashboard() {
   const { status, error, refresh } = useStatus();
+  const [showIssuesModal, setShowIssuesModal] = useState(false);
 
   // Derive loading state from whether we have status data
   const loading = !status;
@@ -114,11 +117,21 @@ export default function SyncStatusDashboard() {
           </div>
         </div>
 
-        {/* Health Badge */}
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${healthColors[health.status]}`}>
-          <HealthIcon className="w-4 h-4" />
-          <span className="text-sm font-medium">{health.label}</span>
-        </div>
+        {/* Health Badge - clickable when issues detected */}
+        {health.status === 'error' ? (
+          <button
+            onClick={() => setShowIssuesModal(true)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${healthColors[health.status]} hover:bg-red-500/30 transition-colors cursor-pointer`}
+          >
+            <HealthIcon className="w-4 h-4" />
+            <span className="text-sm font-medium">{health.label}</span>
+          </button>
+        ) : (
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${healthColors[health.status]}`}>
+            <HealthIcon className="w-4 h-4" />
+            <span className="text-sm font-medium">{health.label}</span>
+          </div>
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -185,9 +198,12 @@ export default function SyncStatusDashboard() {
             {metrics.successRate}%
           </p>
           {metrics.errorsLast24h > 0 && (
-            <p className="text-xs text-red-400 mt-1">
+            <button
+              onClick={() => setShowIssuesModal(true)}
+              className="text-xs text-red-400 mt-1 hover:text-red-300 hover:underline cursor-pointer"
+            >
               {metrics.errorsLast24h} errors
-            </p>
+            </button>
           )}
         </div>
       </div>
@@ -205,6 +221,12 @@ export default function SyncStatusDashboard() {
           Refresh
         </button>
       </div>
+
+      {/* Issues Modal */}
+      <IssuesModal
+        isOpen={showIssuesModal}
+        onClose={() => setShowIssuesModal(false)}
+      />
     </Card>
   );
 }
