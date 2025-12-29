@@ -126,22 +126,98 @@ npm run sync:daemon                # Run continuously
 --help, -h         Show help message
 ```
 
-## systemd Service
+## Production Deployment
 
-### Install Service
+NSMA supports running separate development and production instances simultaneously.
+
+### Quick Setup
+
+```bash
+# Run the production setup script
+./scripts/setup-prod.sh --install-dir=~/projects/nsma-prod --port=5100 --instance=prod
+```
+
+This will:
+1. Clone the repo to `~/projects/nsma-prod`
+2. Install dependencies and build
+3. Create and enable systemd user services
+4. Start production on port 5100
+
+### Multi-Instance Architecture
+
+| Instance | Port | Directory | Services |
+|----------|------|-----------|----------|
+| Development | 3100 | `~/projects/Nsma` | Manual (`npm run dev`) |
+| Production | 5100 | `~/projects/nsma-prod` | systemd (`nsma-daemon-prod`, `nsma-web-prod`) |
+
+Both instances share the same config directory (`~/.notion-sync-manager/`).
+
+### Self-Update Feature
+
+Production instances can update themselves from the web UI:
+
+1. Go to **Settings → Deployment**
+2. Click **Check Updates** to see available commits
+3. Click **Update Now** to pull, build, and restart
+
+Updates include **auto-rollback** — if the build fails, changes are automatically reverted.
+
+### Setup Script Options
+
+```bash
+./scripts/setup-prod.sh [options]
+
+Options:
+  --install-dir=PATH    Installation directory (default: ~/projects/nsma-prod)
+  --port=PORT           Web server port (default: 5100)
+  --instance=NAME       Instance name (default: prod)
+  --config-dir=PATH     Config directory (default: ~/.notion-sync-manager)
+  --skip-clone          Skip git clone (for updating existing install)
+  --skip-build          Skip npm install and build
+```
+
+## systemd Services
+
+### Service Architecture
+
+NSMA uses two separate systemd user services:
+- `nsma-daemon-{instance}` — Background sync daemon
+- `nsma-web-{instance}` — Next.js web server
+
+### Manual Installation (Alternative)
+
+If not using `setup-prod.sh`:
+
+```bash
+# Copy service templates
+mkdir -p ~/.config/systemd/user
+
+# Edit templates and replace placeholders, then:
+systemctl --user daemon-reload
+systemctl --user enable nsma-daemon-prod nsma-web-prod
+systemctl --user start nsma-daemon-prod nsma-web-prod
+
+# Enable services to start on boot (WSL2)
+loginctl enable-linger $USER
+```
+
+### Check Status
+
+```bash
+systemctl --user status nsma-daemon-prod
+systemctl --user status nsma-web-prod
+journalctl --user -u nsma-web-prod -f  # Follow logs
+```
+
+### Legacy Service (Single Instance)
+
+For backward compatibility, the old `notion-sync.service` still works:
 
 ```bash
 sudo cp systemd/notion-sync.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable notion-sync
 sudo systemctl start notion-sync
-```
-
-### Check Status
-
-```bash
-sudo systemctl status notion-sync
-sudo journalctl -u notion-sync -f  # Follow logs
 ```
 
 ## Claude Code Integration
@@ -329,11 +405,12 @@ Nsma/
 
 ### Tech Stack
 
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Next.js 16 (App Router)
 - **Styling**: Tailwind CSS (dark theme)
 - **Icons**: Lucide React
 - **Storage**: JSON files
 - **Runtime**: Node.js 18+
+- **Deployment**: systemd user services (WSL2/Linux)
 
 ## New Project Onboarding Guide
 

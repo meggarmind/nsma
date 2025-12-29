@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Save, AlertCircle, RefreshCw, Database, Clock, FileText, Zap, Key, ChevronRight } from 'lucide-react';
+import { Save, AlertCircle, RefreshCw, Database, Clock, FileText, Zap, Key, ChevronRight, Server } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
 import Header from '@/components/layout/Header';
 import Button from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import NotionConfig from '@/components/settings/NotionConfig';
 import SyncConfig from '@/components/settings/SyncConfig';
 import TemplateConfig from '@/components/settings/TemplateConfig';
 import AIConfig from '@/components/settings/AIConfig';
+import DeploymentConfig from '@/components/settings/DeploymentConfig';
 
 // Tab configuration
 const TABS = [
@@ -17,7 +18,8 @@ const TABS = [
   { id: 'sync', label: 'Sync', icon: Clock, description: 'Intervals & automation' },
   { id: 'templates', label: 'Templates', icon: FileText, description: 'Prompt templates' },
   { id: 'ai', label: 'AI', icon: Zap, description: 'AI expansion settings' },
-  { id: 'advanced', label: 'Advanced', icon: Key, description: 'Registration & tools' }
+  { id: 'advanced', label: 'Advanced', icon: Key, description: 'Registration & tools' },
+  { id: 'deployment', label: 'Deployment', icon: Server, description: 'Updates & services' }
 ];
 
 // Inner component that uses useSearchParams
@@ -235,6 +237,9 @@ function SettingsContent() {
             </div>
           </>
         );
+
+      case 'deployment':
+        return <DeploymentConfig settings={settings} />;
 
       default:
         return null;

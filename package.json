@@ -4,9 +4,9 @@
   "description": "Multi-project development inbox processor with Notion integration",
   "type": "module",
   "scripts": {
-    "dev": "next dev -p 3100 --turbopack",
+    "dev": "next dev -p ${PORT:-3100} --turbopack",
     "build": "next build",
-    "start": "next start -p 3100",
+    "start": "next start -p ${PORT:-3100}",
     "sync": "node cli/index.js",
     "sync:dry": "node cli/index.js --dry-run",
     "sync:daemon": "node cli/index.js --daemon",

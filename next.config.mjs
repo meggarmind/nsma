@@ -6,7 +6,10 @@ const nextConfig = {
   // Allow server actions for sync triggers
   experimental: {
     serverActions: {
-      allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || ['localhost:3100'],
+      // Dynamic port: supports both dev (3100) and prod (5100) instances
+      allowedOrigins: process.env.ALLOWED_ORIGINS?.split(',') || [
+        `localhost:${process.env.PORT || 3100}`,
+      ],
     },
   },
 };

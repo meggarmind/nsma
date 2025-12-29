@@ -1,0 +1,21 @@
+[Unit]
+Description=NSMA Web App (__INSTANCE__)
+After=network.target nsma-daemon-__INSTANCE__.service
+Wants=nsma-daemon-__INSTANCE__.service
+
+[Service]
+Type=simple
+Environment=NODE_ENV=production
+Environment=PORT=__PORT__
+Environment=NOTION_SYNC_CONFIG_DIR=__CONFIG_DIR__
+Environment=NSMA_INSTANCE=__INSTANCE__
+Environment=ALLOWED_ORIGINS=localhost:__PORT__
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__NODE_PATH__ __INSTALL_DIR__/node_modules/.bin/next start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

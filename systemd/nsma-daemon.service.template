@@ -1,0 +1,18 @@
+[Unit]
+Description=NSMA Sync Daemon (__INSTANCE__)
+After=network.target
+
+[Service]
+Type=simple
+Environment=NODE_ENV=production
+Environment=NOTION_SYNC_CONFIG_DIR=__CONFIG_DIR__
+Environment=NSMA_INSTANCE=__INSTANCE__
+WorkingDirectory=__INSTALL_DIR__
+ExecStart=__NODE_PATH__ cli/index.js --daemon
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
