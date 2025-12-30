@@ -90,6 +90,11 @@ else
 
     echo "=================================================================="
     echo "Summary: $aligned_count ready, $decision_count need decision"
+
+    if [ $aligned_count -gt 0 ]; then
+        echo ""
+        echo "💡 Tip: Run /feature-dev:feature-dev before implementing for deep codebase exploration"
+    fi
 fi
 
 # ============================================================================

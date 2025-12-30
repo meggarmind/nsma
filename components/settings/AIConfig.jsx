@@ -173,6 +173,24 @@ export default function AIConfig({ settings, onChange }) {
           <span className="text-dark-200">Enable feature-dev analysis</span>
         </label>
 
+        {/* Skill instruction toggle - only shown when enabled */}
+        {settings.featureDevEnabled !== false && (
+          <div className="ml-8 mb-4">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.featureDevSkillEnabled ?? true}
+                onChange={(e) => onChange({ featureDevSkillEnabled: e.target.checked })}
+                className="w-4 h-4 rounded border-dark-600 bg-dark-800 text-accent focus:ring-accent"
+              />
+              <span className="text-dark-300">Include /feature-dev skill instructions</span>
+            </label>
+            <p className="text-xs text-dark-500 ml-7 mt-1">
+              Adds guidance to run the Claude Code skill for deep codebase exploration during implementation
+            </p>
+          </div>
+        )}
+
         {/* Type selection - only shown when enabled */}
         {settings.featureDevEnabled !== false && (
           <div className="ml-8">
