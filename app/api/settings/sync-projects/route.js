@@ -2,14 +2,12 @@ import { NextResponse } from 'next/server';
 import { getProjects, getSettings, saveSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
-
 /**
  * POST /api/settings/sync-projects
  * Sync project slugs to Notion database dropdown
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost() {
+export async function POST() {
   try {
     const settings = await getSettings();
 
@@ -130,4 +128,3 @@ async function handlePost() {
   }
 }
 
-export const POST = withAuth(handlePost);

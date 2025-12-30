@@ -2,17 +2,16 @@ import { NextResponse } from 'next/server';
 import { getInboxItems, deleteInboxItem, archiveInboxItem, getSettings, logInfo, logWarn } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 import { INBOX_PROJECT_ID } from '@/lib/constants';
 
 /**
  * POST /api/inbox/bulk
  * Bulk delete or archive inbox items
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  *
  * Body: { action: 'delete' | 'archive', itemIds: string[] }
  */
-async function handlePost(request) {
+export async function POST(request) {
   try {
     const body = await request.json();
     const { action, itemIds } = body;
@@ -128,4 +127,3 @@ async function handlePost(request) {
   }
 }
 
-export const POST = withAuth(handlePost);

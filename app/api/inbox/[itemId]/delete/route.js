@@ -2,15 +2,14 @@ import { NextResponse } from 'next/server';
 import { getInboxItems, deleteInboxItem, getSettings, logInfo, logWarn } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 import { INBOX_PROJECT_ID } from '@/lib/constants';
 
 /**
  * POST /api/inbox/[itemId]/delete
  * Delete an inbox item permanently
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost(request, { params }) {
+export async function POST(request, { params }) {
   try {
     const { itemId } = await params;
 
@@ -78,4 +77,3 @@ async function handlePost(request, { params }) {
   }
 }
 
-export const POST = withAuth(handlePost);
