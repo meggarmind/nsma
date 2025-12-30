@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { SyncProcessor } from '@/lib/processor';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
-// Protected: Requires Bearer token authentication
-async function handlePost() {
+// Internal dashboard route - no auth required
+export async function POST() {
   try {
     const processor = new SyncProcessor();
     const results = await processor.run();
@@ -13,5 +12,3 @@ async function handlePost() {
     return jsonError(error);
   }
 }
-
-export const POST = withAuth(handlePost);

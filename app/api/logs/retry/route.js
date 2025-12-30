@@ -3,15 +3,14 @@ import { getProject, getSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { ReverseSyncProcessor } from '@/lib/reverse-sync';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 /**
  * Retry failed reverse sync for a project
  * POST /api/logs/retry
  * Body: { projectId: string }
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost(request) {
+export async function POST(request) {
   try {
     const body = await request.json();
     const { projectId } = body;
@@ -56,4 +55,3 @@ async function handlePost(request) {
   }
 }
 
-export const POST = withAuth(handlePost);

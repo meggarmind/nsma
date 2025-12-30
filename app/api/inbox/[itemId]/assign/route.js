@@ -2,14 +2,13 @@ import { NextResponse } from 'next/server';
 import { getInboxItems, moveInboxItemToProject, getProject, getSettings } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 /**
  * POST /api/inbox/[itemId]/assign
  * Assign an inbox item to a project
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost(request, { params }) {
+export async function POST(request, { params }) {
   try {
     const { itemId } = await params;
     const body = await request.json();
@@ -60,4 +59,3 @@ async function handlePost(request, { params }) {
   }
 }
 
-export const POST = withAuth(handlePost);

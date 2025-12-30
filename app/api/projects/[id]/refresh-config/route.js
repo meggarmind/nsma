@@ -2,14 +2,13 @@ import { NextResponse } from 'next/server';
 import { getProject } from '@/lib/storage';
 import { ConfigWatcher } from '@/lib/config-watcher';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 /**
  * POST /api/projects/[id]/refresh-config
  * Manually trigger config refresh for a project
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost(request, { params }) {
+export async function POST(request, { params }) {
   try {
     const { id } = await params;
 
@@ -73,4 +72,3 @@ export async function GET(request, { params }) {
   }
 }
 
-export const POST = withAuth(handlePost);

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getSettings, saveSettings } from '@/lib/storage';
 import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
@@ -21,8 +20,8 @@ export async function GET() {
   }
 }
 
-// Protected: Requires Bearer token authentication
-async function handlePut(request) {
+// Internal dashboard route - no auth required
+export async function PUT(request) {
   try {
     const body = await request.json();
     const current = await getSettings();
@@ -45,4 +44,3 @@ async function handlePut(request) {
   }
 }
 
-export const PUT = withAuth(handlePut);

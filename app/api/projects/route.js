@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getProjects, createProject, getSettings, countPrompts, updateProject } from '@/lib/storage';
 import { NotionClient } from '@/lib/notion';
 import { jsonWithCache, jsonError, CACHE_DURATIONS } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 export async function GET(request) {
   try {
@@ -31,8 +30,8 @@ export async function GET(request) {
   }
 }
 
-// Protected: Requires Bearer token authentication
-async function handlePost(request) {
+// Internal dashboard route - no auth required
+export async function POST(request) {
   try {
     const body = await request.json();
     const project = await createProject(body);
@@ -57,4 +56,3 @@ async function handlePost(request) {
   }
 }
 
-export const POST = withAuth(handlePost);

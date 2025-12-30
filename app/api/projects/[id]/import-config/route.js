@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getProject, updateProject, getProjectRoot } from '@/lib/storage';
 import { ConfigParser } from '@/lib/config-parser';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 /**
  * GET /api/projects/[id]/import-config
@@ -72,9 +71,9 @@ export async function GET(request, { params }) {
 /**
  * POST /api/projects/[id]/import-config
  * Import configuration from project documentation files
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost(request, { params }) {
+export async function POST(request, { params }) {
   try {
     const { id } = await params;
     const project = await getProject(id);
@@ -137,4 +136,3 @@ async function handlePost(request, { params }) {
   }
 }
 
-export const POST = withAuth(handlePost);

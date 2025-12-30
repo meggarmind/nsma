@@ -3,15 +3,14 @@ import { getProject, getSettings, updateProject, logInfo, logWarn } from '@/lib/
 import { NotionClient } from '@/lib/notion';
 import { ReverseSyncProcessor } from '@/lib/reverse-sync';
 import { jsonError } from '@/lib/api-response';
-import { withAuth } from '@/lib/auth';
 
 /**
  * POST /api/projects/[id]/reverse-sync
  * Manually trigger reverse sync for a project
  * Syncs local file folder locations to Notion page statuses
- * Protected: Requires Bearer token authentication
+ * Internal dashboard route - no auth required
  */
-async function handlePost(request, { params }) {
+export async function POST(request, { params }) {
   try {
     const { id } = await params;
 
@@ -121,4 +120,3 @@ async function handlePost(request, { params }) {
   }
 }
 
-export const POST = withAuth(handlePost);
