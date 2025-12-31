@@ -360,10 +360,10 @@ export default function SyncStatusDashboard() {
           {showIntervalMenu && (
             <>
               <div
-                className="fixed inset-0 z-10"
+                className="fixed inset-0 z-40"
                 onClick={() => setShowIntervalMenu(false)}
               />
-              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-20 min-w-[120px] py-1">
+              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-50 min-w-[120px] py-1">
                 {SYNC_INTERVALS.map(({ value, label }) => (
                   <button
                     key={value}
@@ -408,10 +408,10 @@ export default function SyncStatusDashboard() {
               {showPauseMenu && (
                 <>
                   <div
-                    className="fixed inset-0 z-10"
+                    className="fixed inset-0 z-40"
                     onClick={() => setShowPauseMenu(false)}
                   />
-                  <div className="absolute bottom-full right-0 mb-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-20 min-w-[140px] py-1">
+                  <div className="absolute bottom-full right-0 mb-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-50 min-w-[140px] py-1">
                     {PAUSE_DURATIONS.map(({ value, label }) => (
                       <button
                         key={value}

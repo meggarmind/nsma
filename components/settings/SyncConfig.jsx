@@ -94,10 +94,10 @@ export default function SyncConfig({ settings, onChange }) {
           {showIntervalMenu && (
             <>
               <div
-                className="fixed inset-0 z-10"
+                className="fixed inset-0 z-40"
                 onClick={() => setShowIntervalMenu(false)}
               />
-              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-20 min-w-[180px] py-1">
+              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-50 min-w-[180px] py-1">
                 {SYNC_INTERVALS.map(({ value, labelLong }) => (
                   <button
                     key={value}
@@ -196,11 +196,11 @@ export default function SyncConfig({ settings, onChange }) {
                   <>
                     {/* Backdrop to close menu */}
                     <div
-                      className="fixed inset-0 z-10"
+                      className="fixed inset-0 z-40"
                       onClick={() => setShowDurationMenu(false)}
                     />
                     {/* Dropdown menu */}
-                    <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-20 min-w-[160px] py-1">
+                    <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-50 min-w-[160px] py-1">
                       {PAUSE_DURATIONS.map(({ value, label }) => (
                         <button
                           key={value}
