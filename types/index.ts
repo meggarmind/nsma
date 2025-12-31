@@ -58,6 +58,8 @@ export interface SyncLog {
   projectId?: string;
 }
 
+export type SyncPauseType = 'timed' | 'manual' | null;
+
 export interface SyncStatus {
   daemon: DaemonStatus;
   metrics: SyncMetrics;
@@ -65,6 +67,8 @@ export interface SyncStatus {
   syncIntervalMinutes: number;
   nextSyncAt: string | null;
   lastCheckAt: string | null;
+  syncPausedUntil: string | null;
+  syncPauseType: SyncPauseType;
 }
 
 // =============================================================================
@@ -105,6 +109,8 @@ export interface Settings {
   hasAnthropicKey?: boolean;
   selectedDatabaseId?: string;
   autoSync?: boolean;
+  syncPausedUntil?: string | null;
+  syncPauseType?: SyncPauseType;
 }
 
 // =============================================================================

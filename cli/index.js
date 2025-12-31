@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createInterface } from 'readline';
 import { SyncProcessor } from '../lib/processor.js';
-import { getSettings, getProjects, updateProject, addLog, logInfo, logWarn } from '../lib/storage.js';
+import { getSettings, saveSettings, getProjects, updateProject, addLog, logInfo, logWarn } from '../lib/storage.js';
 import { ConfigWatcher } from '../lib/config-watcher.js';
 import { ReverseSyncProcessor } from '../lib/reverse-sync.js';
 import { NotionClient } from '../lib/notion.js';
@@ -406,6 +406,33 @@ async function main() {
 
     // Helper function to run a complete sync cycle
     const runSyncCycle = async (isInitial = false) => {
+      // Check pause state before syncing
+      const currentSettings = await getSettings();
+      const now = Date.now();
+
+      if (currentSettings.syncPausedUntil) {
+        const pauseUntil = new Date(currentSettings.syncPausedUntil).getTime();
+
+        if (currentSettings.syncPauseType === 'manual') {
+          // Manual pause - skip until admin resumes
+          console.log(`\n⏸️  Sync paused (manual) - waiting for admin to resume`);
+          return;
+        } else if (now < pauseUntil) {
+          // Timed pause - still active
+          const remaining = Math.ceil((pauseUntil - now) / 60000);
+          console.log(`\n⏸️  Sync paused - ${remaining} minute(s) remaining`);
+          return;
+        } else {
+          // Timed pause expired - clear it and continue
+          await saveSettings({
+            ...currentSettings,
+            syncPausedUntil: null,
+            syncPauseType: null
+          });
+          console.log(`\n▶️  Pause expired, resuming sync`);
+        }
+      }
+
       const cycleType = isInitial ? 'Initial' : 'Scheduled';
       console.log(`\n${'═'.repeat(60)}`);
       console.log(`${isInitial ? '📋' : '⏰'} ${cycleType} sync at ${new Date().toLocaleString()}`);

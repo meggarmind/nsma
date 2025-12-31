@@ -74,7 +74,10 @@ export async function GET() {
       recentLogs,
       syncIntervalMinutes: settings.syncIntervalMinutes || 15,
       nextSyncAt,
-      lastCheckAt
+      lastCheckAt,
+      // Pause state
+      syncPausedUntil: settings.syncPausedUntil || null,
+      syncPauseType: settings.syncPauseType || null
     }, { maxAge: CACHE_DURATIONS.status });
   } catch (error) {
     console.error('Status API error:', error);
