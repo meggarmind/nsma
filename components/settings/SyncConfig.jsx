@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Pause, Play, Clock, ChevronDown } from 'lucide-react';
 import Card from '../ui/Card';
-import Input from '../ui/Input';
 import Button from '../ui/Button';
 
 const PAUSE_DURATIONS = [
@@ -13,8 +12,17 @@ const PAUSE_DURATIONS = [
   { value: 120, label: '2 hours' }
 ];
 
+const SYNC_INTERVALS = [
+  { value: 5, label: '5 min', labelLong: 'Every 5 minutes' },
+  { value: 15, label: '15 min', labelLong: 'Every 15 minutes' },
+  { value: 30, label: '30 min', labelLong: 'Every 30 minutes' },
+  { value: 60, label: '1 hour', labelLong: 'Every 1 hour' },
+  { value: 120, label: '2 hours', labelLong: 'Every 2 hours' }
+];
+
 export default function SyncConfig({ settings, onChange }) {
   const [showDurationMenu, setShowDurationMenu] = useState(false);
+  const [showIntervalMenu, setShowIntervalMenu] = useState(false);
 
   const isPaused = Boolean(settings.syncPausedUntil);
   const isManualPause = settings.syncPauseType === 'manual';
@@ -69,16 +77,48 @@ export default function SyncConfig({ settings, onChange }) {
       <h3 className="text-xl font-semibold text-dark-50 mb-4">Sync Configuration</h3>
 
       {/* Sync Interval */}
-      <div className="space-y-4 mb-6">
-        <Input
-          type="number"
-          label="Sync Interval (minutes)"
-          value={settings.syncIntervalMinutes}
-          onChange={(e) => onChange({ syncIntervalMinutes: parseInt(e.target.value) })}
-          placeholder="15"
-          required
-        />
-        <p className="text-sm text-dark-500">
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-dark-200 mb-2">
+          Sync Interval
+        </label>
+        <div className="relative inline-block">
+          <button
+            onClick={() => setShowIntervalMenu(!showIntervalMenu)}
+            className="flex items-center gap-2 px-4 py-2 bg-dark-800 border border-dark-600 rounded-lg text-dark-100 hover:border-dark-500 transition-colors"
+          >
+            <Clock className="w-4 h-4 text-dark-400" />
+            {SYNC_INTERVALS.find(i => i.value === settings.syncIntervalMinutes)?.labelLong || `Every ${settings.syncIntervalMinutes} minutes`}
+            <ChevronDown className={`w-4 h-4 text-dark-400 transition-transform ${showIntervalMenu ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showIntervalMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowIntervalMenu(false)}
+              />
+              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-20 min-w-[180px] py-1">
+                {SYNC_INTERVALS.map(({ value, labelLong }) => (
+                  <button
+                    key={value}
+                    onClick={() => {
+                      onChange({ syncIntervalMinutes: value });
+                      setShowIntervalMenu(false);
+                    }}
+                    className={`w-full px-4 py-2 text-left transition-colors ${
+                      settings.syncIntervalMinutes === value
+                        ? 'bg-accent/20 text-accent'
+                        : 'text-dark-200 hover:bg-dark-700 hover:text-dark-50'
+                    }`}
+                  >
+                    {labelLong}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+        <p className="text-sm text-dark-500 mt-2">
           How often the systemd daemon should sync projects
         </p>
       </div>

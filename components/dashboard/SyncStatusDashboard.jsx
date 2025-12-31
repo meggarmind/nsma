@@ -26,6 +26,14 @@ const PAUSE_DURATIONS = [
   { value: 120, label: '2 hours' }
 ];
 
+const SYNC_INTERVALS = [
+  { value: 5, label: '5 min' },
+  { value: 15, label: '15 min' },
+  { value: 30, label: '30 min' },
+  { value: 60, label: '1 hour' },
+  { value: 120, label: '2 hours' }
+];
+
 /**
  * Sync Status Dashboard - shows daemon status, last sync details, and health metrics
  *
@@ -35,6 +43,7 @@ export default function SyncStatusDashboard() {
   const { status, error, refresh } = useStatus();
   const [showIssuesModal, setShowIssuesModal] = useState(false);
   const [showPauseMenu, setShowPauseMenu] = useState(false);
+  const [showIntervalMenu, setShowIntervalMenu] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Derive loading state from whether we have status data
@@ -140,6 +149,25 @@ export default function SyncStatusDashboard() {
       await refresh();
     } catch (err) {
       console.error('Failed to resume:', err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleIntervalChange = async (minutes) => {
+    setIsUpdating(true);
+    setShowIntervalMenu(false);
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          syncIntervalMinutes: minutes
+        })
+      });
+      await refresh();
+    } catch (err) {
+      console.error('Failed to change interval:', err);
     } finally {
       setIsUpdating(false);
     }
@@ -315,11 +343,45 @@ export default function SyncStatusDashboard() {
         </div>
       </div>
 
-      {/* Sync Interval Info + Pause Controls */}
+      {/* Sync Interval + Pause Controls */}
       <div className="flex items-center justify-between pt-4 border-t border-dark-700">
-        <p className="text-sm text-dark-500">
-          Auto-sync interval: <span className="text-dark-300">{syncIntervalMinutes} minutes</span>
-        </p>
+        {/* Interval Dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowIntervalMenu(!showIntervalMenu)}
+            disabled={isUpdating}
+            className="flex items-center gap-1.5 text-sm text-dark-400 hover:text-dark-200 transition-colors disabled:opacity-50"
+          >
+            <Clock className="w-3.5 h-3.5" />
+            Auto-sync: <span className="text-dark-300">{SYNC_INTERVALS.find(i => i.value === syncIntervalMinutes)?.label || `${syncIntervalMinutes}m`}</span>
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showIntervalMenu ? 'rotate-180' : ''}`} />
+          </button>
+
+          {showIntervalMenu && (
+            <>
+              <div
+                className="fixed inset-0 z-10"
+                onClick={() => setShowIntervalMenu(false)}
+              />
+              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-20 min-w-[120px] py-1">
+                {SYNC_INTERVALS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => handleIntervalChange(value)}
+                    className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+                      syncIntervalMinutes === value
+                        ? 'bg-accent/20 text-accent'
+                        : 'text-dark-200 hover:bg-dark-700 hover:text-dark-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
         <div className="flex items-center gap-2">
           {/* Pause/Resume button */}
           {isPaused ? (
