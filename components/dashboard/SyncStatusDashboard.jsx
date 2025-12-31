@@ -363,7 +363,7 @@ export default function SyncStatusDashboard() {
                 className="fixed inset-0 z-40"
                 onClick={() => setShowIntervalMenu(false)}
               />
-              <div className="absolute top-full left-0 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-50 min-w-[120px] py-1">
+              <div className="absolute bottom-full left-0 mb-1 bg-dark-800 border border-dark-600 rounded-lg shadow-xl z-50 min-w-[120px] py-1">
                 {SYNC_INTERVALS.map(({ value, label }) => (
                   <button
                     key={value}
