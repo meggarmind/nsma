@@ -71,3 +71,31 @@ export function findStaleWrites(items, pendingPageIds) {
 
   return { stale, remaining };
 }
+
+/**
+ * Find the pending file for a given Notion page ID and pull the frontmatter
+ * fields needed to reconstruct a full triage decision for a retry — the
+ * original write's rationale text isn't preserved locally, so a retry uses
+ * a fixed placeholder for it rather than losing the rest of the decision.
+ * @param {string} promptsPendingDir
+ * @param {string} pageId
+ * @returns {Promise<{phase?: string, module?: string, type?: string, priority?: string, rationale: string} | null>}
+ */
+export async function loadDecisionFromPendingFile(promptsPendingDir, pageId) {
+  const files = await readdir(promptsPendingDir);
+  for (const file of files) {
+    if (!file.endsWith('.md')) continue;
+    const content = await readFile(join(promptsPendingDir, file), 'utf-8');
+    if (!content.includes(`notion_page_id: ${pageId}`)) continue;
+
+    const field = (name) => content.match(new RegExp(`^${name}:\\s*(.+)$`, 'm'))?.[1]?.trim();
+    return {
+      phase: field('phase'),
+      module: field('module'),
+      type: field('type'),
+      priority: field('priority'),
+      rationale: 'Recovered after a previous write failure — see the task file for full context.'
+    };
+  }
+  return null;
+}

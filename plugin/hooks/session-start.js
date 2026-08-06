@@ -1,36 +1,22 @@
-import { readFile, readdir } from 'fs/promises';
+import { readFile, readdir, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { NotionClient } from '../../lib/notion-client/index.js';
 import { ConfigParser } from '../../lib/config-parser.js';
 import { PromptGenerator } from '../lib/prompt-generator.js';
-import { splitByType, getPendingPageIds, findStaleWrites } from '../lib/routing.js';
+import { splitByType, getPendingPageIds, findStaleWrites, loadDecisionFromPendingFile } from '../lib/routing.js';
 import { formatIdeationListing } from '../lib/format-listing.js';
 import { recordTriageDecision, buildTriageProperties } from '../mcp-server/record-triage-decision.js';
 
 /**
- * Find the pending file for a given Notion page ID and pull the frontmatter
- * fields needed to reconstruct a full triage decision for a retry — the
- * original write's rationale text isn't preserved locally, so a retry uses
- * a fixed placeholder for it rather than losing the rest of the decision.
+ * Insert a `synced_to_notion: true` frontmatter line right after the opening
+ * `---` delimiter, unless it's already present. Used by the processed/
+ * safety-net scan (Finding 7) so a file whose Notion status has already been
+ * confirmed Done is skipped on future scans without a Notion round-trip.
  */
-async function loadDecisionFromPendingFile(promptsPendingDir, pageId) {
-  const files = await readdir(promptsPendingDir);
-  for (const file of files) {
-    if (!file.endsWith('.md')) continue;
-    const content = await readFile(join(promptsPendingDir, file), 'utf-8');
-    if (!content.includes(`notion_page_id: ${pageId}`)) continue;
-
-    const field = (name) => content.match(new RegExp(`^${name}:\\s*(.+)$`, 'm'))?.[1]?.trim();
-    return {
-      phase: field('phase'),
-      module: field('module'),
-      type: field('type'),
-      priority: field('priority'),
-      rationale: 'Recovered after a previous write failure — see the task file for full context.'
-    };
-  }
-  return null;
+function addSyncedMarker(content) {
+  if (/^synced_to_notion:\s*true\s*$/m.test(content)) return content;
+  return content.replace(/^---\r?\n/, (match) => `${match}synced_to_notion: true\n`);
 }
 
 async function loadPluginConfig() {
@@ -116,18 +102,31 @@ async function run() {
     const phase = generator.determinePhase(item);
     await recordTriageDecision(
       { itemId: item.pageId, phase, priority: item.priority || 'Medium', rationale: 'Bug-family item — mechanically classified, no live ideation needed.' },
-      { notionClient, project, settings: {} }
+      { notionClient, project, settings: {}, promptsPendingDir }
     );
     console.log(`✅ [EXECUTE] ${item.title} (${item.type}, mechanically classified to ${phase})`);
   }
 
   console.log('');
-  console.log(formatIdeationListing(ideationItems));
+  console.log(formatIdeationListing(ideationItems, pluginConfig.ideationMethod));
 
   const promptsProcessedDir = join(process.cwd(), 'prompts/processed');
   if (existsSync(promptsProcessedDir)) {
-    const processedIds = await getPendingPageIds(promptsProcessedDir);
-    for (const pageId of processedIds) {
+    const files = await readdir(promptsProcessedDir);
+    for (const file of files) {
+      if (!file.endsWith('.md')) continue;
+
+      const filePath = join(promptsProcessedDir, file);
+      const content = await readFile(filePath, 'utf-8');
+
+      // Already confirmed Done in a prior session — skip the Notion round-trip
+      // so this scan stays bounded as prompts/processed/ grows over time.
+      if (/^synced_to_notion:\s*true\s*$/m.test(content)) continue;
+
+      const match = content.match(/^notion_page_id:\s*(.+)$/m);
+      if (!match) continue;
+      const pageId = match[1].trim();
+
       try {
         const page = await notionClient.request('GET', `/pages/${pageId}`);
         const item = NotionClient.parseItem(page);
@@ -135,6 +134,9 @@ async function run() {
           await notionClient.updatePage(pageId, { 'Status': { select: { name: 'Done' } } });
           console.log(`✅ Synced missed completion: ${item.title}`);
         }
+        // Notion status is now confirmed Done either way — mark the file so
+        // future sessions skip it without a Notion round-trip.
+        await writeFile(filePath, addSyncedMarker(content));
       } catch (error) {
         console.warn(`⚠️ Could not verify processed item ${pageId}: ${error.message}`);
       }

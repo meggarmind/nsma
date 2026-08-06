@@ -34,12 +34,13 @@ export function buildTriageProperties(decision) {
  * { success: false, error } so the MCP tool layer can report them cleanly.
  *
  * @param {{itemId: string, phase: string, module?: string, type?: string, priority: string, rationale: string}} decision
- * @param {{notionClient: NotionClient, project: object, settings: object, writeFile?: Function}} deps
+ * @param {{notionClient: NotionClient, project: object, settings: object, writeFile?: Function, promptsPendingDir?: string}} deps
  * @returns {Promise<{success: true, notionUrl: string, filePath: string} | {success: false, error: string}>}
  */
 export async function recordTriageDecision(decision, deps) {
   const { notionClient, project, settings } = deps;
   const writeFile = deps.writeFile || fsWriteFile;
+  const promptsPendingDir = deps.promptsPendingDir || join(process.cwd(), 'prompts', 'pending');
 
   let page;
   try {
@@ -51,13 +52,12 @@ export async function recordTriageDecision(decision, deps) {
   const item = NotionClient.parseItem(page);
   const properties = buildTriageProperties(decision);
 
-  let notionError = null;
-  try {
-    await notionClient.updatePage(decision.itemId, properties);
-  } catch (error) {
-    notionError = error.message;
-  }
-
+  // Write the local file BEFORE touching Notion (Finding 6). If the file
+  // write fails, nothing has been sent to Notion yet — the item stays
+  // "Not started" and will be re-queried and re-attempted next session,
+  // same as a read failure above. This avoids the "Notion says In progress
+  // but no local file exists" stranded state that a Notion-write-first
+  // ordering could produce.
   const generator = new PromptGenerator(project, settings);
   let filePath;
   try {
@@ -69,7 +69,6 @@ export async function recordTriageDecision(decision, deps) {
       priority: decision.priority
     });
 
-    const promptsPendingDir = join(process.cwd(), 'prompts', 'pending');
     if (!existsSync(promptsPendingDir)) {
       await mkdir(promptsPendingDir, { recursive: true });
     }
@@ -79,6 +78,13 @@ export async function recordTriageDecision(decision, deps) {
     await writeFile(filePath, generated.content);
   } catch (error) {
     return { success: false, error: `Failed to write task file: ${error.message}` };
+  }
+
+  let notionError = null;
+  try {
+    await notionClient.updatePage(decision.itemId, properties);
+  } catch (error) {
+    notionError = error.message;
   }
 
   if (notionError) {

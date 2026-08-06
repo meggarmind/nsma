@@ -1,0 +1,11 @@
+{
+  "name": "nsma-companion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NSMA Companion plugin dependencies. If this plugin/ directory is ever copied or installed standalone (outside the notion-sync-manager repo), run `npm install` inside plugin/ first — the MCP server (mcp-server/index.js) requires @modelcontextprotocol/sdk and zod, which are declared only here, not vendored or bundled.",
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "zod": "^3.24.1"
+  }
+}

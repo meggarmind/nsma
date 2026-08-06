@@ -34,4 +34,24 @@ describe('formatIdeationListing', () => {
   it('returns an empty-queue message when there are no items', () => {
     expect(formatIdeationListing([])).toContain('No items need triage');
   });
+
+  it('names superpowers:brainstorming specifically when ideationMethod is "brainstorming"', () => {
+    const text = formatIdeationListing(
+      [{ pageId: 'p', title: 't', type: 'Feature', affectedModule: '', priority: 'Low', description: '' }] as any,
+      'brainstorming'
+    );
+
+    expect(text).toContain('run superpowers:brainstorming');
+    expect(text).not.toContain('plan mode');
+  });
+
+  it("names Claude Code's plan mode specifically when ideationMethod is \"plan-mode\"", () => {
+    const text = formatIdeationListing(
+      [{ pageId: 'p', title: 't', type: 'Feature', affectedModule: '', priority: 'Low', description: '' }] as any,
+      'plan-mode'
+    );
+
+    expect(text).toContain('plan mode');
+    expect(text).not.toContain('superpowers:brainstorming');
+  });
 });

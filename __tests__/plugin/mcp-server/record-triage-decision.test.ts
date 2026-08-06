@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { mkdtemp, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { NotionClient } from '@/lib/notion-client';
 import { recordTriageDecision, buildTriageProperties } from '@/plugin/mcp-server/record-triage-decision';
 
@@ -158,6 +161,28 @@ describe('recordTriageDecision', () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain('disk full');
+  });
+
+  it('writes to a custom promptsPendingDir when provided in deps, instead of the hardcoded default', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, json: async () => fakePage() } as any)
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) } as any);
+
+    const customDir = await mkdtemp(join(tmpdir(), 'nsma-custom-pending-'));
+    try {
+      const result = await recordTriageDecision(
+        { itemId: 'page-123', phase: 'Phase 1: Foundation', priority: 'High', rationale: 'Custom dir test.' },
+        { notionClient: client, project, settings: {}, writeFile, promptsPendingDir: customDir }
+      );
+
+      expect(result.success).toBe(true);
+      expect(writeFile).toHaveBeenCalledOnce();
+      const [filePath] = writeFile.mock.calls[0];
+      expect(String(filePath)).toContain(customDir.split('\\').join('/'));
+      expect(String(filePath)).not.toContain('prompts/pending');
+    } finally {
+      await rm(customDir, { recursive: true, force: true });
+    }
   });
 
   it('returns success: false without writing a file when the item cannot be read', async () => {

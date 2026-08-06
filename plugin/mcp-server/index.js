@@ -47,7 +47,10 @@ async function main() {
       }
     },
     async (args) => {
-      const result = await recordTriageDecision(args, { notionClient, project, settings: {} });
+      const promptsPendingDir = pluginConfig.taskOutputPath
+        ? join(process.cwd(), pluginConfig.taskOutputPath)
+        : undefined;
+      const result = await recordTriageDecision(args, { notionClient, project, settings: {}, promptsPendingDir });
       return { content: [{ type: 'text', text: JSON.stringify(result) }] };
     }
   );
