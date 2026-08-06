@@ -73,6 +73,22 @@ describe('fetchRaw', () => {
     expect(queryAllItemsSpy).toHaveBeenCalledWith('db-1');
   });
 
+  it('marks a normal fresh fetch as not stale and includes a fetchedAt timestamp', async () => {
+    const data = await fetchRaw();
+
+    expect(data.stale).toBe(false);
+    expect(typeof data.fetchedAt).toBe('string');
+    expect(new Date(data.fetchedAt).toString()).not.toBe('Invalid Date');
+  });
+
+  it('dedupes concurrent calls on a cold cache into a single underlying fetch', async () => {
+    const [dataA, dataB] = await Promise.all([fetchRaw(), fetchRaw()]);
+
+    expect(queryAllItemsSpy).toHaveBeenCalledTimes(1);
+    expect(dataA.items).toHaveLength(1);
+    expect(dataB.items).toHaveLength(1);
+  });
+
   it('serves cached data on a second call within the TTL, without refetching', async () => {
     await fetchRaw();
     await fetchRaw();
@@ -101,6 +117,9 @@ describe('fetchRaw', () => {
 
     expect(data.items).toHaveLength(1);
     expect(data.items[0].title).toBe('Item');
+    expect(data.stale).toBe(true);
+    expect(typeof data.fetchedAt).toBe('string');
+    expect(new Date(data.fetchedAt).toString()).not.toBe('Invalid Date');
   });
 
   it('throws when there is no cache yet and the fetch fails', async () => {
