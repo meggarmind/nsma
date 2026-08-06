@@ -341,4 +341,23 @@ describe('NotionClient.parseItem — Processed Date and Analysis Notes', () => {
     expect(item.processedDate).toBeNull();
     expect(item.analysisNotes).toBe('');
   });
+
+  it('joins all rich_text chunks for analysisNotes instead of truncating to the first', () => {
+    const page = {
+      id: 'page-1000',
+      url: 'https://notion.so/page-1000',
+      created_time: '2026-01-01T00:00:00.000Z',
+      properties: {
+        'Idea/Todo': { type: 'title', title: [{ plain_text: 'Multi-chunk thing' }] },
+        'Analysis Notes': {
+          type: 'rich_text',
+          rich_text: [{ plain_text: 'First part. ' }, { plain_text: 'Second part.' }]
+        }
+      }
+    };
+
+    const item = NotionClient.parseItem(page as any);
+
+    expect(item.analysisNotes).toBe('First part. Second part.');
+  });
 });
