@@ -59,22 +59,27 @@ export async function recordTriageDecision(decision, deps) {
   }
 
   const generator = new PromptGenerator(project, settings);
-  const generated = generator.generate({
-    ...item,
-    assignedPhase: decision.phase,
-    affectedModule: decision.module || item.affectedModule,
-    type: decision.type || item.type,
-    priority: decision.priority
-  });
+  let filePath;
+  try {
+    const generated = generator.generate({
+      ...item,
+      assignedPhase: decision.phase,
+      affectedModule: decision.module || item.affectedModule,
+      type: decision.type || item.type,
+      priority: decision.priority
+    });
 
-  const promptsPendingDir = join(process.cwd(), 'prompts', 'pending');
-  if (!existsSync(promptsPendingDir)) {
-    await mkdir(promptsPendingDir, { recursive: true });
+    const promptsPendingDir = join(process.cwd(), 'prompts', 'pending');
+    if (!existsSync(promptsPendingDir)) {
+      await mkdir(promptsPendingDir, { recursive: true });
+    }
+    // Normalize to forward slashes: Node's fs accepts them on all platforms,
+    // and callers (e.g. Task 6's retry, MCP responses) expect a stable format.
+    filePath = join(promptsPendingDir, generated.filename).split('\\').join('/');
+    await writeFile(filePath, generated.content);
+  } catch (error) {
+    return { success: false, error: `Failed to write task file: ${error.message}` };
   }
-  // Normalize to forward slashes: Node's fs accepts them on all platforms,
-  // and callers (e.g. Task 6's retry, MCP responses) expect a stable format.
-  const filePath = join(promptsPendingDir, generated.filename).split('\\').join('/');
-  await writeFile(filePath, generated.content);
 
   if (notionError) {
     return { success: false, error: `Task file written, but Notion update failed: ${notionError}` };

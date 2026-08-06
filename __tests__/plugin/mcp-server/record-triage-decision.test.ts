@@ -144,6 +144,22 @@ describe('recordTriageDecision', () => {
     expect(writeFile).toHaveBeenCalledOnce();
   });
 
+  it('returns success: false instead of throwing when writing the local task file fails', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, json: async () => fakePage() } as any) // read
+      .mockResolvedValueOnce({ ok: true, json: async () => ({}) } as any); // updatePage
+
+    const failingWriteFile = vi.fn().mockRejectedValue(new Error('disk full'));
+
+    const result = await recordTriageDecision(
+      { itemId: 'page-123', phase: 'Phase 1: Foundation', priority: 'High', rationale: 'Blocks the next release.' },
+      { notionClient: client, project, settings: {}, writeFile: failingWriteFile }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('disk full');
+  });
+
   it('returns success: false without writing a file when the item cannot be read', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({ ok: false, status: 404, headers: { get: () => null }, text: async () => 'not found' } as any);
 
