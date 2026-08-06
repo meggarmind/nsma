@@ -175,3 +175,90 @@ describe('NotionClient.queryDatabase pagination', () => {
     expect(secondCallBody.start_cursor).toBe('cursor-2');
   });
 });
+
+describe('NotionClient.parseProjectSlugsTable', () => {
+  it('skips the header row and extracts the four columns from each data row', () => {
+    const rows = [
+      {
+        type: 'table_row',
+        table_row: { cells: [
+          [{ plain_text: 'Project Name' }], [{ plain_text: 'Slug' }], [{ plain_text: 'Modules' }], [{ plain_text: 'Phases' }]
+        ] }
+      },
+      {
+        type: 'table_row',
+        table_row: { cells: [
+          [{ plain_text: 'Residio' }], [{ plain_text: 'residio' }], [{ plain_text: 'Core, API' }], [{ plain_text: 'Phase 1, Phase 2' }]
+        ] }
+      },
+      {
+        type: 'table_row',
+        table_row: { cells: [
+          [{ plain_text: 'Nsma' }], [{ plain_text: 'nsma' }], [{ plain_text: 'Core Platform' }], [{ plain_text: 'Phase 1: Foundation' }]
+        ] }
+      }
+    ];
+
+    expect(NotionClient.parseProjectSlugsTable(rows)).toEqual([
+      { name: 'Residio', slug: 'residio', modules: 'Core, API', phases: 'Phase 1, Phase 2' },
+      { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }
+    ]);
+  });
+});
+
+describe('NotionClient.upsertProjectSlugsPage', () => {
+  const client = new NotionClient('fake-token');
+
+  it('merges this project into existing rows without dropping other projects', async () => {
+    vi.spyOn(client, 'getPageBlocks').mockImplementation(async (id: string) => {
+      if (id === 'page-1') {
+        return [{ id: 'table-1', type: 'table', table: {} }] as any;
+      }
+      if (id === 'table-1') {
+        return [
+          { type: 'table_row', table_row: { cells: [[{ plain_text: 'Project Name' }], [{ plain_text: 'Slug' }], [{ plain_text: 'Modules' }], [{ plain_text: 'Phases' }]] } },
+          { type: 'table_row', table_row: { cells: [[{ plain_text: 'Residio' }], [{ plain_text: 'residio' }], [{ plain_text: 'Core' }], [{ plain_text: 'Phase 1' }]] } }
+        ] as any;
+      }
+      throw new Error(`unexpected getPageBlocks id: ${id}`);
+    });
+    const syncSpy = vi.spyOn(client, 'syncProjectSlugsPage').mockResolvedValue({ pageId: 'page-1', created: false });
+
+    await client.upsertProjectSlugsPage('db-1', { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }, 'page-1');
+
+    expect(syncSpy).toHaveBeenCalledWith('db-1', [
+      { name: 'Residio', slug: 'residio', modules: 'Core', phases: 'Phase 1' },
+      { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }
+    ], 'page-1');
+  });
+
+  it('replaces an existing row for the same slug rather than duplicating it', async () => {
+    vi.spyOn(client, 'getPageBlocks').mockImplementation(async (id: string) => {
+      if (id === 'page-1') return [{ id: 'table-1', type: 'table', table: {} }] as any;
+      if (id === 'table-1') {
+        return [
+          { type: 'table_row', table_row: { cells: [[{ plain_text: 'Project Name' }], [{ plain_text: 'Slug' }], [{ plain_text: 'Modules' }], [{ plain_text: 'Phases' }]] } },
+          { type: 'table_row', table_row: { cells: [[{ plain_text: 'Nsma Old Name' }], [{ plain_text: 'nsma' }], [{ plain_text: 'Old Module' }], [{ plain_text: 'Old Phase' }]] } }
+        ] as any;
+      }
+      throw new Error(`unexpected getPageBlocks id: ${id}`);
+    });
+    const syncSpy = vi.spyOn(client, 'syncProjectSlugsPage').mockResolvedValue({ pageId: 'page-1', created: false });
+
+    await client.upsertProjectSlugsPage('db-1', { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }, 'page-1');
+
+    expect(syncSpy).toHaveBeenCalledWith('db-1', [
+      { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }
+    ], 'page-1');
+  });
+
+  it('writes just this project when no page exists yet', async () => {
+    const syncSpy = vi.spyOn(client, 'syncProjectSlugsPage').mockResolvedValue({ pageId: 'new-page', created: true });
+
+    await client.upsertProjectSlugsPage('db-1', { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }, null);
+
+    expect(syncSpy).toHaveBeenCalledWith('db-1', [
+      { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }
+    ], null);
+  });
+});
