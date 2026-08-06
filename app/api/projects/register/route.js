@@ -3,7 +3,7 @@ import { createProject, updateProject } from '@/lib/storage';
 import { validateProjectRegistration, findProjectBySlug } from '@/lib/validation';
 import { verifyRegistrationToken } from '@/lib/auth';
 import { createProjectDirectories } from '@/lib/setup';
-import { NotionClient } from '@/lib/notion';
+import { NotionClient } from '@/lib/notion-client';
 import { getSettings, getProjects } from '@/lib/storage';
 import { ConfigParser } from '@/lib/config-parser';
 

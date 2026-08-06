@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getInboxItems, deleteInboxItem, archiveInboxItem, getSettings, logInfo, logWarn } from '@/lib/storage';
-import { NotionClient } from '@/lib/notion';
+import { NotionClient } from '@/lib/notion-client';
 import { jsonError } from '@/lib/api-response';
 import { INBOX_PROJECT_ID } from '@/lib/constants';
 

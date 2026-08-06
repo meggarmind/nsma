@@ -4,7 +4,7 @@ import { SyncProcessor } from '../lib/processor.js';
 import { getSettings, saveSettings, getProjects, updateProject, addLog, logInfo, logWarn } from '../lib/storage.js';
 import { ConfigWatcher } from '../lib/config-watcher.js';
 import { ReverseSyncProcessor } from '../lib/reverse-sync.js';
-import { NotionClient } from '../lib/notion.js';
+import { NotionClient } from '../lib/notion-client/index.js';
 import {
   generateProjectDefaults,
   validatePaths,

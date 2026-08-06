@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getProject, updateProject, deleteProject, getProjects, getSettings } from '@/lib/storage';
-import { NotionClient } from '@/lib/notion';
+import { NotionClient } from '@/lib/notion-client';
 import { jsonError } from '@/lib/api-response';
 
 export async function GET(request, { params }) {
