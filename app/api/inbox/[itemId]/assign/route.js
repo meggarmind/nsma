@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getInboxItems, moveInboxItemToProject, getProject, getSettings } from '@/lib/storage';
-import { NotionClient } from '@/lib/notion';
+import { NotionClient } from '@/lib/notion-client';
 import { jsonError } from '@/lib/api-response';
 
 /**

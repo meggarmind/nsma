@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getProject, getSettings } from '@/lib/storage';
-import { NotionClient } from '@/lib/notion';
+import { NotionClient } from '@/lib/notion-client';
 import { ReverseSyncProcessor } from '@/lib/reverse-sync';
 import { jsonError } from '@/lib/api-response';
 
