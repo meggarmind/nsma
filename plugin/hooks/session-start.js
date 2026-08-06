@@ -92,7 +92,13 @@ async function run() {
 
   for (const item of stale) {
     console.log(`🔄 Retrying stale Notion write for "${item.title}"...`);
-    const decision = await loadDecisionFromPendingFile(promptsPendingDir, item.pageId);
+    let decision;
+    try {
+      decision = await loadDecisionFromPendingFile(promptsPendingDir, item.pageId);
+    } catch (error) {
+      console.warn(`  Could not read the local pending file: ${error.message}`);
+      continue;
+    }
     if (!decision || !decision.phase || !decision.priority) {
       console.warn(`  Could not reconstruct the original decision from the local file — skipping retry.`);
       continue;
