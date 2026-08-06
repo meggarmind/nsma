@@ -1,0 +1,10 @@
+{
+  "name": "nsma-companion",
+  "version": "0.1.0",
+  "description": "Per-project triage companion for the NSM Inbox: brainstorms non-bug items with real project context, classifies bug items mechanically, and keeps Notion in sync.",
+  "author": {
+    "name": "Jimi Adewole"
+  },
+  "license": "MIT",
+  "keywords": ["nsma", "notion", "triage", "brainstorming"]
+}
