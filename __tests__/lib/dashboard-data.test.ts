@@ -7,6 +7,7 @@ vi.mock('@/lib/storage', () => ({
 }));
 
 import { fetchRaw, getDashboardProjects, _resetCache } from '@/lib/dashboard-data';
+import { getUnassignedItems, getAnalyticsData, getActivityFeed } from '@/lib/dashboard-data';
 
 const baseSettings = {
   notionToken: 'fake-token',
@@ -159,5 +160,108 @@ describe('getDashboardProjects', () => {
     const projects = await getDashboardProjects();
 
     expect(projects[0].stats).toEqual({ notStarted: 0, inProgress: 0, done: 0, blocked: 0, deferred: 0 });
+  });
+});
+
+describe('getUnassignedItems', () => {
+  beforeEach(() => {
+    _resetCache();
+    vi.mocked(getSettings).mockResolvedValue(baseSettings as any);
+    vi.spyOn(NotionClient.prototype, 'getPageBlocks').mockImplementation(async (id: string) => {
+      if (id === 'slugs-page-1') return tableBlocks() as any;
+      if (id === 'table-1') return tableRows() as any;
+      throw new Error(`unexpected getPageBlocks id: ${id}`);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns items whose project does not match a known slug', async () => {
+    vi.spyOn(NotionClient.prototype, 'queryAllItems').mockResolvedValue([
+      fakePage({ 'Project': { type: 'select', select: { name: 'nsma' } } }),
+      fakePage({ 'Project': { type: 'select', select: { name: 'unknown-project' } } }),
+      fakePage({ 'Project': undefined })
+    ] as any);
+
+    const unassigned = await getUnassignedItems();
+
+    expect(unassigned).toHaveLength(2);
+    expect(unassigned.map((i: any) => i.project)).toEqual(['unknown-project', '']);
+  });
+});
+
+describe('getAnalyticsData', () => {
+  beforeEach(() => {
+    _resetCache();
+    vi.mocked(getSettings).mockResolvedValue(baseSettings as any);
+    vi.spyOn(NotionClient.prototype, 'getPageBlocks').mockImplementation(async (id: string) => {
+      if (id === 'slugs-page-1') return tableBlocks() as any;
+      if (id === 'table-1') return tableRows() as any;
+      throw new Error(`unexpected getPageBlocks id: ${id}`);
+    });
+    vi.spyOn(NotionClient.prototype, 'queryAllItems').mockResolvedValue([
+      fakePage({ 'Type': { type: 'select', select: { name: 'Feature' } }, 'Priority': { type: 'select', select: { name: 'High' } }, 'Status': { type: 'select', select: { name: 'Not started' } }, 'Project': { type: 'select', select: { name: 'nsma' } } }),
+      fakePage({ 'Type': { type: 'select', select: { name: 'Feature' } }, 'Priority': { type: 'select', select: { name: 'Low' } }, 'Status': { type: 'select', select: { name: 'Done' } }, 'Project': { type: 'select', select: { name: 'nsma' } } }),
+      fakePage({ 'Type': { type: 'select', select: { name: 'Bug Fix' } }, 'Priority': { type: 'select', select: { name: 'High' } }, 'Status': { type: 'select', select: { name: 'Done' } }, 'Project': { type: 'select', select: { name: 'other-project' } } })
+    ] as any);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('computes distributions by type, priority, and status', async () => {
+    const analytics = await getAnalyticsData();
+
+    expect(analytics.byType).toEqual(expect.arrayContaining([
+      { name: 'Feature', value: 2 },
+      { name: 'Bug Fix', value: 1 }
+    ]));
+    expect(analytics.byPriority).toEqual(expect.arrayContaining([
+      { name: 'High', value: 2 },
+      { name: 'Low', value: 1 }
+    ]));
+    expect(analytics.byStatus).toEqual(expect.arrayContaining([
+      { name: 'Not started', value: 1 },
+      { name: 'Done', value: 2 }
+    ]));
+  });
+
+  it('computes project comparison sorted by total descending, only for known projects', async () => {
+    const analytics = await getAnalyticsData();
+
+    expect(analytics.projectComparison).toEqual([
+      { name: 'Nsma', slug: 'nsma', total: 2, notStarted: 1, inProgress: 0, done: 1, blocked: 0, deferred: 0 }
+    ]);
+  });
+});
+
+describe('getActivityFeed', () => {
+  beforeEach(() => {
+    _resetCache();
+    vi.mocked(getSettings).mockResolvedValue(baseSettings as any);
+    vi.spyOn(NotionClient.prototype, 'getPageBlocks').mockImplementation(async (id: string) => {
+      if (id === 'slugs-page-1') return tableBlocks() as any;
+      if (id === 'table-1') return tableRows() as any;
+      throw new Error(`unexpected getPageBlocks id: ${id}`);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('filters to items with a processedDate and sorts most-recent-first', async () => {
+    vi.spyOn(NotionClient.prototype, 'queryAllItems').mockResolvedValue([
+      fakePage({ 'Idea/Todo': { type: 'title', title: [{ plain_text: 'Older' }] }, 'Processed Date': { type: 'date', date: { start: '2026-01-01' } } }),
+      fakePage({ 'Idea/Todo': { type: 'title', title: [{ plain_text: 'Not yet processed' }] } }),
+      fakePage({ 'Idea/Todo': { type: 'title', title: [{ plain_text: 'Newer' }] }, 'Processed Date': { type: 'date', date: { start: '2026-01-10' } } })
+    ] as any);
+
+    const feed = await getActivityFeed();
+
+    expect(feed.map((i: any) => i.title)).toEqual(['Newer', 'Older']);
   });
 });
