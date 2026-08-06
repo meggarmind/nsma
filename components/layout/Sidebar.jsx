@@ -99,21 +99,16 @@ export default function Sidebar({ projects = [] }) {
           ) : (
             <div className="space-y-1">
               {projects.map((project) => (
-                <Link
+                <div
                   key={project.id}
-                  href={`/projects/${project.id}`}
-                  className={`flex items-center gap-3 px-4 py-2 rounded-lg transition-all ${
-                    pathname === `/projects/${project.id}`
-                      ? 'bg-dark-800 text-dark-100'
-                      : 'text-dark-500 hover:bg-dark-800 hover:text-dark-300'
-                  }`}
+                  className="flex items-center gap-3 px-4 py-2 rounded-lg transition-all text-dark-500 hover:bg-dark-800 hover:text-dark-300"
                 >
                   <FolderOpen size={16} />
                   <span className="flex-1 text-sm truncate">{project.name}</span>
                   {!project.active && (
                     <Badge variant="warning" className="text-xs">Paused</Badge>
                   )}
-                </Link>
+                </div>
               ))}
             </div>
           )}

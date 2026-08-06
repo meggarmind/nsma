@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { FolderOpen, Pause, Play, RefreshCw, Calendar, ArrowUp, ArrowDown, Check } from 'lucide-react';
 import Card from '../ui/Card';
 import Badge from '../ui/Badge';
@@ -54,7 +53,7 @@ export default function ProjectCard({
             {selected && <Check size={14} />}
           </button>
         )}
-        <Link href={`/projects/${project.id}`} className="flex items-center gap-3 flex-1">
+        <div className="flex items-center gap-3 flex-1">
           <div className="p-2 bg-accent/20 rounded-lg">
             <FolderOpen className="text-accent" size={20} />
           </div>
@@ -62,7 +61,7 @@ export default function ProjectCard({
             <h3 className="text-lg font-semibold text-dark-50 truncate">{project.name}</h3>
             <p className="text-sm text-dark-500 font-mono truncate">{project.slug}</p>
           </div>
-        </Link>
+        </div>
         <Badge variant={project.active ? 'success' : 'warning'}>
           {project.active ? 'Active' : 'Paused'}
         </Badge>
