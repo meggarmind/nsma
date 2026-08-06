@@ -83,7 +83,7 @@ export class PromptGenerator {
   }
 
   generate(item, pageContent = null) {
-    const phase = this.determinePhase(item);
+    const phase = item.assignedPhase || this.determinePhase(item);
     const relatedFiles = this.getRelatedFiles(item.affectedModule);
     const effort = this.estimateEffort(item);
     const dependencies = this.identifyDependencies(item);

@@ -80,4 +80,20 @@ describe('PromptGenerator.generate', () => {
     expect(content).toContain('## Custom Body');
     expect(content).toContain('Full page content here.');
   });
+
+  it('uses item.assignedPhase over the classifier-determined phase when present', () => {
+    // The classifier (determinePhase) would resolve this item's module-phase
+    // mapping to "Phase 1: Foundation" — but a human triage decision assigned
+    // it to "Phase 3: UI/UX" instead. The generated file must reflect the
+    // human decision, not the classifier's guess (Finding 2).
+    const classifierPhase = generator.determinePhase(item);
+    expect(classifierPhase).toBe('Phase 1: Foundation');
+
+    const decidedItem = { ...item, assignedPhase: 'Phase 3: UI/UX' };
+    const { content } = generator.generate(decidedItem);
+
+    expect(content).toContain('phase: Phase 3: UI/UX');
+    expect(content).toContain('**Phase**: Phase 3: UI/UX');
+    expect(content).not.toContain('phase: Phase 1: Foundation');
+  });
 });
