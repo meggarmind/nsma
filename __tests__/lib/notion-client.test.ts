@@ -37,7 +37,9 @@ describe('NotionClient.parseItem', () => {
       description: 'Export analytics data as CSV',
       capturedDate: '2026-01-02T00:00:00.000Z',
       assignedPhase: 'Phase 1',
-      isHydrated: true
+      isHydrated: true,
+      processedDate: null,
+      analysisNotes: ''
     });
   });
 
@@ -260,5 +262,83 @@ describe('NotionClient.upsertProjectSlugsPage', () => {
     expect(syncSpy).toHaveBeenCalledWith('db-1', [
       { name: 'Nsma', slug: 'nsma', modules: 'Core Platform', phases: 'Phase 1: Foundation' }
     ], null);
+  });
+});
+
+describe('NotionClient.queryAllItems', () => {
+  const client = new NotionClient('fake-token');
+
+  beforeEach(() => {
+    vi.mocked(fetch).mockReset();
+  });
+
+  it('paginates through all items with no status or project filter', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [{ id: 'a' }], has_more: true, next_cursor: 'cursor-2' })
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [{ id: 'b' }], has_more: false, next_cursor: null })
+      } as any);
+
+    const results = await client.queryAllItems('db-1');
+
+    expect(results.map((r: any) => r.id)).toEqual(['a', 'b']);
+
+    const firstBody = JSON.parse((vi.mocked(fetch).mock.calls[0][1] as any).body as string);
+    expect(firstBody.filter).toBeUndefined();
+    expect(firstBody.page_size).toBe(100);
+
+    const secondBody = JSON.parse((vi.mocked(fetch).mock.calls[1][1] as any).body as string);
+    expect(secondBody.start_cursor).toBe('cursor-2');
+  });
+
+  it('returns an empty array when the database has no items', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ results: [], has_more: false, next_cursor: null })
+    } as any);
+
+    const results = await client.queryAllItems('db-1');
+
+    expect(results).toEqual([]);
+  });
+});
+
+describe('NotionClient.parseItem — Processed Date and Analysis Notes', () => {
+  it('extracts processedDate and analysisNotes when present', () => {
+    const page = {
+      id: 'page-789',
+      url: 'https://notion.so/page-789',
+      created_time: '2026-01-01T00:00:00.000Z',
+      properties: {
+        'Idea/Todo': { type: 'title', title: [{ plain_text: 'Done thing' }] },
+        'Processed Date': { type: 'date', date: { start: '2026-01-05' } },
+        'Analysis Notes': { type: 'rich_text', rich_text: [{ plain_text: 'Completed by Claude Code.' }] }
+      }
+    };
+
+    const item = NotionClient.parseItem(page as any);
+
+    expect(item.processedDate).toBe('2026-01-05');
+    expect(item.analysisNotes).toBe('Completed by Claude Code.');
+  });
+
+  it('defaults processedDate to null and analysisNotes to empty string when absent', () => {
+    const page = {
+      id: 'page-999',
+      url: 'https://notion.so/page-999',
+      created_time: '2026-01-01T00:00:00.000Z',
+      properties: {
+        'Idea/Todo': { type: 'title', title: [{ plain_text: 'New thing' }] }
+      }
+    };
+
+    const item = NotionClient.parseItem(page as any);
+
+    expect(item.processedDate).toBeNull();
+    expect(item.analysisNotes).toBe('');
   });
 });
