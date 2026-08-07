@@ -1,6 +1,6 @@
 # Notion Sync Manager (NSMA)
 
-Multi-project development inbox processor that syncs ideas/tasks from Notion and generates development prompts for Claude Code.
+Multi-project development inbox processor that syncs ideas/tasks from Notion and generates development prompts for Claude Code and opencode.
 
 ## Features
 
@@ -8,14 +8,14 @@ Multi-project development inbox processor that syncs ideas/tasks from Notion and
 - **Bidirectional Sync** — Notion → disk (forward sync) and disk → Notion (reverse status sync)
 - **AI Prompt Generation** — Claude/Gemini-powered prompt expansion with phase assignment, effort estimation, and dependency identification
 - **Inbox Triage** — review and assign unassigned Notion items to projects
-- **NSMA Companion Plugin** — Claude Code plugin with `/nsma-setup`, `/nsma-complete` slash commands and per-project triage
+- **NSMA Companion** — available as a Claude Code plugin and an opencode plugin with `/nsma-setup`, `/nsma-complete` commands and per-project triage
 - **Analytics Dashboard** — sync history, throughput, and activity feeds
 - **Bulk Operations** — select and sync multiple projects at once
 - **Production Ready** — Docker + systemd deployment with self-update and auto-rollback
 
 ## Quick Start
 
-> This walkthrough uses the NSMA project itself as the sample. By the end, you'll have the plugin running in Claude Code on this repo.
+> This walkthrough uses the NSMA project itself as the sample. By the end, you'll have the plugin running in your AI coding agent on this repo.
 
 ### Step 1: Clone and Install
 
@@ -40,11 +40,18 @@ Edit `.env` — you need:
 - `NOTION_DATABASE_ID` — the ID of your NSM Inbox database
 - `REGISTRATION_TOKEN` — any UUID (generate with `uuidgen` on Linux/Mac, `[guid]::NewGuid()` on PowerShell)
 
-The plugin also reads these from the environment. For Claude Code, export them in your shell profile:
+Export the plugin environment variables in your shell profile:
 
+**Bash/Zsh:**
 ```bash
 export NSMA_NOTION_TOKEN="ntn_your_token_here"
 export NSMA_NOTION_INBOX_DB_ID="your_database_id_here"
+```
+
+**PowerShell:**
+```powershell
+$env:NSMA_NOTION_TOKEN = "ntn_your_token_here"
+$env:NSMA_NOTION_INBOX_DB_ID = "your_database_id_here"
 ```
 
 > **Security:** The Notion token is read from environment variables only. It is never written to any config file, so it cannot end up in your git history.
@@ -55,41 +62,103 @@ export NSMA_NOTION_INBOX_DB_ID="your_database_id_here"
 npm run dev
 ```
 
-Open http://localhost:3100 — you can manage projects, view analytics, and browse the inbox here. The plugin works with or without the dashboard running.
+Open http://localhost:3100 — manage projects, view analytics, and browse the inbox. The plugin works with or without the dashboard running.
 
-### Step 4: Launch Claude Code with the Plugin
+### Step 4: Set Up the Plugin
+
+The repo ships with an `opencode.json` config and `.opencode/plugin/` already in place — it's ready to use immediately. Choose your agent:
+
+**opencode (built-in):**
+
+The plugin loads automatically on session start. Run `/nsma-setup` to bootstrap the project:
+
+```
+/nsma-setup
+```
+
+This creates `prompts/{pending,processed,archived,deferred}/`, writes `.nsma-plugin.json`, and registers the project in Notion.
+
+**Claude Code:**
 
 ```bash
 claude --plugin-dir ./plugin
 ```
 
-Run `/nsma-setup` in the Claude Code session. This:
-- Auto-imports phases and modules from `.nsma-config.md` (already included)
-- Creates `prompts/{pending,processed,archived,deferred}/` directories
-- Writes `.nsma-plugin.json` with your project configuration
-- Registers the project in your Notion NSM Project Slugs page
+Then run `/nsma-setup` in the session.
 
 ### Step 5: Daily Workflow
 
-Each time you open Claude Code in this project (with `--plugin-dir ./plugin`):
+Each time you open a session in this project:
 
-1. **SessionStart hook fires automatically** — queries Notion for items tagged `nsma` with status "Not started"
-2. **Bug-family items** (Bug Fix, Documentation, Security Fix, Technical Debt) are mechanically classified and written to `prompts/pending/` — no interaction needed
-3. **Ideation items** (Feature, Improvement, Research/Spike) are listed for you to triage — run `superpowers:brainstorming` on each, then call the `record_triage_decision` MCP tool with your conclusion
-4. **When a task is done** — run `/nsma-complete <filename>` to move it to `prompts/processed/` and mark it Done in Notion
+1. **Bug-family items** (Bug Fix, Documentation, Security Fix, Technical Debt) are mechanically classified and written to `prompts/pending/` — no interaction needed (Claude Code: SessionStart hook; opencode: plugin injects context, run pending items list manually)
+2. **Ideation items** (Feature, Improvement, Research/Spike) need your triage — determine phase, priority, and module, then call the `record_triage_decision` MCP tool with your conclusion
+3. **When a task is done** — run `/nsma-complete <filename>` to move it to `prompts/processed/` and mark it Done in Notion
 
 ### Adding Other Projects
 
 1. Create a `.nsma-config.md` in the project root defining its phases and modules (see [example](./.nsma-config.example.md))
-2. Launch Claude Code in that project with the plugin:
-
+2. Copy the opencode config files into the project:
+   ```bash
+   cp opencode.json /path/to/your/project/
+   cp -r .opencode /path/to/your/project/
+   ```
+3. Open the project in opencode, or launch Claude Code:
    ```bash
    claude --plugin-dir /path/to/Nsma/plugin
    ```
+4. Run `/nsma-setup`
+5. Add the project's slug as an option in your Notion Inbox database's "Project" select property
+6. Tag Notion items with the slug to have them appear in triage scans
 
-3. Run `/nsma-setup` — same bootstrap as Step 4 above
-4. Add the project's slug as an option in your Notion Inbox database's "Project" select property
-5. Tag Notion items with the slug to have them appear in the plugin's session-start scan
+## Integration
+
+### opencode
+
+The `opencode.json` config and `.opencode/plugin/` ship with this repo and activate automatically when you open the project in opencode:
+
+- **MCP server** (`nsma-companion`) auto-starts — provides the `record_triage_decision` tool
+- **Plugin module** injects NSMA triage context into each session
+- **`/nsma-setup`** — bootstraps the project (creates prompts dirs, writes `.nsma-plugin.json`, registers in Notion)
+- **`/nsma-complete`** — marks a task Done in Notion and moves the file to `processed/`
+
+To use in other projects, copy `opencode.json` and `.opencode/` into that project:
+```bash
+cp opencode.json /path/to/your/project/
+cp -r .opencode /path/to/your/project/
+```
+
+### Claude Code
+
+```bash
+cd plugin && npm install
+claude --plugin-dir ./path/to/plugin
+```
+
+Provides the same `/nsma-setup`, `/nsma-complete`, MCP server, plus a **SessionStart hook** that automatically scans the Notion inbox and mechanically classifies bug-family items. See [plugin/README.md](plugin/README.md) for details.
+
+## Prompt Generation
+
+### Phase Assignment Logic
+
+1. **Module Mapping** (highest priority) — direct module → phase links
+2. **Keyword Matching** — searches text for phase-specific keywords
+3. **Default Fallback** — uses first phase or "Backlog"
+
+### AI Prompt Expansion
+
+Optionally expand prompts using Claude or Gemini:
+
+- Analyses item description, type, and affected modules
+- Adds architecture context, file paths, and implementation guidance
+- `feature-dev` mode: deep architecture analysis for feature-type items
+
+### Always-Execute Types
+
+These types sync regardless of current phase:
+- Bug Fix
+- Documentation
+- Security Fix
+- Technical Debt
 
 ## Architecture
 
@@ -133,7 +202,7 @@ All configuration lives in `~/.notion-sync-manager/`:
 | Estimated Effort | Select | XS, S, M, L, XL |
 | Generated Prompt Location | URL | Path to generated file |
 
-## Web Dashboard Pages
+### Web Dashboard Pages
 
 | Page | Route | Purpose |
 |------|-------|---------|
@@ -142,39 +211,6 @@ All configuration lives in `~/.notion-sync-manager/`:
 | Analytics | `/analytics` | Sync metrics and activity feed |
 | Logs | `/logs` | Per-project sync history |
 | Settings | `/settings` | Notion config, AI providers, deployment |
-
-## Claude Code Integration (NSMA Companion Plugin)
-
-The plugin (`plugin/`) provides:
-
-- **`/nsma-setup`** — generates the project-specific setup prompt from your NSMA config
-- **`/nsma-complete`** — marks items done, moves files to `processed/`, and updates Notion
-- **SessionStart hook** — runs on Claude Code session start, summarizes pending inbox items
-- **MCP server** — records triage decisions (brainstorm vs classify) back to Notion
-
-## Prompt Generation
-
-### Phase Assignment Logic
-
-1. **Module Mapping** (highest priority) — direct module → phase links
-2. **Keyword Matching** — searches text for phase-specific keywords
-3. **Default Fallback** — uses first phase or "Backlog"
-
-### AI Prompt Expansion
-
-Optionally expand prompts using Claude or Gemini:
-
-- Analyses item description, type, and affected modules
-- Adds architecture context, file paths, and implementation guidance
-- `feature-dev` mode: deep architecture analysis for feature-type items
-
-### Always-Execute Types
-
-These types sync regardless of current phase:
-- Bug Fix
-- Documentation
-- Security Fix
-- Technical Debt
 
 ## Production Deployment
 
