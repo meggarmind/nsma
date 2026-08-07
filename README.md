@@ -15,53 +15,81 @@ Multi-project development inbox processor that syncs ideas/tasks from Notion and
 
 ## Quick Start
 
-### 1. Install Dependencies
+> This walkthrough uses the NSMA project itself as the sample. By the end, you'll have the plugin running in Claude Code on this repo.
+
+### Step 1: Clone and Install
 
 ```bash
-npm install
+git clone https://github.com/meggarmind/nsma.git
+cd nsma
+npm install               # Web dashboard dependencies
+cd plugin && npm install  # MCP server dependencies
+cd ..
 ```
 
-### 2. Start Development Server
+### Step 2: Configure Environment
+
+Copy the example env file and fill in your Notion credentials:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` — you need:
+- `NOTION_TOKEN` — your Notion integration secret (get one at https://www.notion.so/my-integrations)
+- `NOTION_DATABASE_ID` — the ID of your NSM Inbox database
+- `REGISTRATION_TOKEN` — any UUID (generate with `uuidgen` on Linux/Mac, `[guid]::NewGuid()` on PowerShell)
+
+The plugin also reads these from the environment. For Claude Code, export them in your shell profile:
+
+```bash
+export NSMA_NOTION_TOKEN="ntn_your_token_here"
+export NSMA_NOTION_INBOX_DB_ID="your_database_id_here"
+```
+
+> **Security:** The Notion token is read from environment variables only. It is never written to any config file, so it cannot end up in your git history.
+
+### Step 3: Launch the Dashboard (Optional)
 
 ```bash
 npm run dev
 ```
 
-Access dashboard at: http://localhost:3100
+Open http://localhost:3100 — you can manage projects, view analytics, and browse the inbox here. The plugin works with or without the dashboard running.
 
-### 3. Configure Notion Integration
-
-1. Go to **Settings** → **Notion**
-2. Enter your Notion integration token
-3. Enter your Notion database ID
-4. Add your project slug as an option in the Notion database's "Project" select property
-
-### 4. Add Your First Project
-
-1. Click **"New Project"** on the dashboard
-2. Enter:
-   - **Name** — Your project's display name
-   - **Slug** — must match the Notion "Project" property value
-   - **Prompts Path** — where prompt files should live (must end with `/prompts`)
-3. Configure phases and modules (or auto-import from a config file)
-
-### 5. Install the NSMA Companion Plugin (Claude Code)
-
-First, install the plugin's MCP dependencies:
+### Step 4: Launch Claude Code with the Plugin
 
 ```bash
-cd plugin && npm install
+claude --plugin-dir ./plugin
 ```
 
-Then launch Claude Code with the plugin loaded (from any project directory):
+Run `/nsma-setup` in the Claude Code session. This:
+- Auto-imports phases and modules from `.nsma-config.md` (already included)
+- Creates `prompts/{pending,processed,archived,deferred}/` directories
+- Writes `.nsma-plugin.json` with your project configuration
+- Registers the project in your Notion NSM Project Slugs page
 
-```bash
-claude --plugin-dir /path/to/Nsma/plugin
-```
+### Step 5: Daily Workflow
 
-This enables `/nsma-setup` and `/nsma-complete` slash commands plus automatic inbox scanning on session start.
+Each time you open Claude Code in this project (with `--plugin-dir ./plugin`):
 
-> **Note:** The plugin must stay inside the NSMA repo — it imports shared libraries from `../../lib/` relative to the plugin directory.
+1. **SessionStart hook fires automatically** — queries Notion for items tagged `nsma` with status "Not started"
+2. **Bug-family items** (Bug Fix, Documentation, Security Fix, Technical Debt) are mechanically classified and written to `prompts/pending/` — no interaction needed
+3. **Ideation items** (Feature, Improvement, Research/Spike) are listed for you to triage — run `superpowers:brainstorming` on each, then call the `record_triage_decision` MCP tool with your conclusion
+4. **When a task is done** — run `/nsma-complete <filename>` to move it to `prompts/processed/` and mark it Done in Notion
+
+### Adding Other Projects
+
+1. Create a `.nsma-config.md` in the project root defining its phases and modules (see [example](./.nsma-config.example.md))
+2. Launch Claude Code in that project with the plugin:
+
+   ```bash
+   claude --plugin-dir /path/to/Nsma/plugin
+   ```
+
+3. Run `/nsma-setup` — same bootstrap as Step 4 above
+4. Add the project's slug as an option in your Notion Inbox database's "Project" select property
+5. Tag Notion items with the slug to have them appear in the plugin's session-start scan
 
 ## Architecture
 
