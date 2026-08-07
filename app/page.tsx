@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Inbox, RefreshCw, Circle, ArrowRight } from 'lucide-react';
+import { RefreshCw, Circle, ArrowRight, Filter } from 'lucide-react';
 
 const STATUS_BAR_COLORS: Record<string, string> = {
   'Not started': '#5C6370',
@@ -56,10 +56,26 @@ function ThroughputBar({ stats }: { stats: Record<string, number> }) {
   );
 }
 
+function ProjectTag({ slug, active, onClick }: { slug: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2 py-0.5 rounded text-[10px] font-mono tracking-wider uppercase transition-colors ${
+        active
+          ? 'bg-[#5B9BD5]/20 text-[#5B9BD5]'
+          : 'bg-[#232836] text-[#6B7389] hover:bg-[#232836]/80 hover:text-[#E8ECF1]'
+      }`}
+    >
+      {slug}
+    </button>
+  );
+}
+
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activityFilter, setActivityFilter] = useState<string | null>(null);
 
   const fetchData = useCallback(async (force = false) => {
     try {
@@ -76,6 +92,23 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const filteredActivity = useMemo(() => {
+    if (!data?.activity) return [];
+    if (!activityFilter) return data.activity;
+    return data.activity.filter((item: any) => item.project === activityFilter);
+  }, [data?.activity, activityFilter]);
+
+  const aggregateStats = useMemo(() => {
+    if (!data?.projects) return null;
+    const totals: Record<string, number> = {};
+    for (const project of data.projects) {
+      for (const [status, count] of Object.entries(project.stats as Record<string, number>)) {
+        totals[status] = (totals[status] || 0) + count;
+      }
+    }
+    return totals;
+  }, [data?.projects]);
 
   if (loading) {
     return (
@@ -101,36 +134,71 @@ export default function Dashboard() {
 
   const { projects = [], unassigned = [], activity = [] } = data;
   const inboxCount = unassigned.length;
+  const inboxPreview = unassigned.slice(0, 3);
 
   return (
     <>
+      {/* Aggregate summary */}
+      {aggregateStats && (
+        <div className="mb-8 p-4 rounded-lg border border-[#232836] bg-[#161A24]">
+          <div className="flex items-center gap-6 text-xs">
+            <span className="text-[#5C6370] uppercase tracking-wider">Across all projects</span>
+            <div className="flex items-center gap-4">
+              {Object.entries(aggregateStats).map(([status, count]) => (
+                <span key={status} className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: STATUS_BAR_COLORS[status] }} />
+                  <span className="text-[#6B7389] tabular-nums">{count}</span>
+                  <span className="text-[#5C6370] uppercase tracking-wider text-[10px]">{STATUS_LABELS[status]}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Inbox — the hero */}
       <div className="mb-12">
         <div className="flex items-baseline gap-3 mb-1">
           <h1 className="text-sm tracking-[0.2em] uppercase text-[#5C6370] font-medium">Inbox</h1>
           <span className="text-[10px] text-[#5C6370] tracking-wider">UNSORTED</span>
         </div>
-        <div className="flex items-center justify-between p-6 rounded-xl border border-[#232836] bg-[#161A24]">
-          <div className="flex items-baseline gap-4">
-            <span className="text-5xl font-light text-[#E8ECF1] tabular-nums tracking-tight">
-              {inboxCount}
-            </span>
-            <span className="text-sm text-[#6B7389]">
-              {inboxCount === 0 ? 'Clear — nothing waiting' : inboxCount === 1 ? 'item needs assignment' : 'items need assignment'}
-            </span>
+        <div className="p-6 rounded-xl border border-[#232836] bg-[#161A24]">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-baseline gap-4">
+              <span className="text-5xl font-light text-[#E8ECF1] tabular-nums tracking-tight">
+                {inboxCount}
+              </span>
+              <span className="text-sm text-[#6B7389]">
+                {inboxCount === 0 ? 'Clear — nothing waiting' : inboxCount === 1 ? 'item needs assignment' : 'items need assignment'}
+              </span>
+            </div>
+            {inboxCount > 0 && (
+              <Link
+                href="/inbox"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-[#E06C75]/10 text-[#E06C75] hover:bg-[#E06C75]/20 transition-colors"
+              >
+                Triage <ArrowRight size={14} />
+              </Link>
+            )}
+            {inboxCount === 0 && (
+              <span className="flex items-center gap-2 text-sm text-[#6B7389]">
+                <Circle size={8} className="fill-[#98C379] text-[#98C379]" /> All clear
+              </span>
+            )}
           </div>
-          {inboxCount > 0 && (
-            <Link
-              href="/inbox"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-[#E06C75]/10 text-[#E06C75] hover:bg-[#E06C75]/20 transition-colors"
-            >
-              Triage <ArrowRight size={14} />
-            </Link>
-          )}
-          {inboxCount === 0 && (
-            <span className="flex items-center gap-2 text-sm text-[#6B7389]">
-              <Circle size={8} className="fill-[#98C379] text-[#98C379]" /> All clear
-            </span>
+          {inboxPreview.length > 0 && (
+            <div className="space-y-1.5 pt-4 border-t border-[#232836]">
+              <span className="text-[10px] text-[#5C6370] uppercase tracking-wider">Preview</span>
+              {inboxPreview.map((item: any) => (
+                <div key={item.pageId} className="flex items-center gap-2 text-sm">
+                  <span className="text-[#6B7389]">→</span>
+                  <span className="text-[#E8ECF1] truncate">{item.title}</span>
+                  {item.project && (
+                    <span className="text-[10px] text-[#5C6370] font-mono ml-auto flex-shrink-0">{item.project}</span>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -181,22 +249,48 @@ export default function Dashboard() {
       </div>
 
       {/* Activity feed */}
-      {activity.length > 0 && (
-        <div>
-          <h2 className="text-sm tracking-[0.2em] uppercase text-[#5C6370] font-medium mb-4">
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm tracking-[0.2em] uppercase text-[#5C6370] font-medium">
             Recent completions
           </h2>
+          {activityFilter && (
+            <button
+              onClick={() => setActivityFilter(null)}
+              className="flex items-center gap-1.5 text-xs text-[#5B9BD5] hover:text-[#E8ECF1] transition-colors"
+            >
+              <Filter size={12} /> Clear filter: {activityFilter}
+            </button>
+          )}
+        </div>
+
+        {filteredActivity.length === 0 ? (
+          <div className="p-8 text-center border border-dashed border-[#232836] rounded-xl">
+            <p className="text-sm text-[#6B7389]">
+              {activityFilter
+                ? `No completions for ${activityFilter}. Try a different project.`
+                : 'No completions yet. Finished items will appear here.'}
+            </p>
+          </div>
+        ) : (
           <div className="rounded-xl border border-[#232836] bg-[#161A24] divide-y divide-[#232836]">
-            {activity.slice(0, 6).map((item: any) => (
+            {filteredActivity.slice(0, 8).map((item: any) => (
               <div key={item.pageId} className="flex items-center gap-3 px-5 py-3">
                 <Circle size={8} className="fill-[#98C379] text-[#98C379] flex-shrink-0" />
-                <p className="text-sm text-[#E8ECF1] truncate">{item.title}</p>
-                <span className="text-xs text-[#5C6370] ml-auto flex-shrink-0 tabular-nums">{item.processedDate}</span>
+                <p className="text-sm text-[#E8ECF1] truncate flex-1">{item.title}</p>
+                {item.project && (
+                  <ProjectTag
+                    slug={item.project}
+                    active={activityFilter === item.project}
+                    onClick={() => setActivityFilter(activityFilter === item.project ? null : item.project)}
+                  />
+                )}
+                <span className="text-xs text-[#5C6370] tabular-nums flex-shrink-0 ml-2">{item.processedDate}</span>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </>
   );
 }
