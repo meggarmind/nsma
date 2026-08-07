@@ -14,13 +14,13 @@ import { recordTriageDecision, buildTriageProperties } from '../mcp-server/recor
  * safety-net scan (Finding 7) so a file whose Notion status has already been
  * confirmed Done is skipped on future scans without a Notion round-trip.
  */
-function addSyncedMarker(content) {
+export function addSyncedMarker(content) {
   if (/^synced_to_notion:\s*true\s*$/m.test(content)) return content;
   return content.replace(/^---\r?\n/, (match) => `${match}synced_to_notion: true\n`);
 }
 
-async function loadPluginConfig() {
-  const configPath = join(process.cwd(), '.nsma-plugin.json');
+export async function loadPluginConfig(cwd = process.cwd()) {
+  const configPath = join(cwd, '.nsma-plugin.json');
   if (!existsSync(configPath)) {
     return null;
   }
@@ -110,7 +110,7 @@ async function run() {
   console.log('');
   console.log(formatIdeationListing(ideationItems, pluginConfig.ideationMethod));
 
-  const promptsProcessedDir = join(process.cwd(), 'prompts/processed');
+  const promptsProcessedDir = join(process.cwd(), pluginConfig.taskProcessedPath || 'prompts/processed');
   if (existsSync(promptsProcessedDir)) {
     const files = await readdir(promptsProcessedDir);
     for (const file of files) {
