@@ -38,3 +38,6 @@ Thumbs.db
 
 # Misc
 *.pem
+
+# NSMA plugin per-project config (contains database IDs)
+.nsma-plugin.json
