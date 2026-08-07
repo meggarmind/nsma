@@ -1,430 +1,174 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { FolderPlus, Search } from 'lucide-react';
-import { useToast } from '@/hooks/useToast';
-import { useSyncEvents } from '@/hooks/useSyncEvents';
-import { useProjects, useAppData } from '@/hooks/useAppData';
+import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
+import { ClipboardList, AlertCircle, CheckCircle2, Clock, PauseCircle, RefreshCw } from 'lucide-react';
 import Header from '@/components/layout/Header';
-import StatsOverview from '@/components/dashboard/StatsOverview';
-import SyncBanner from '@/components/dashboard/SyncBanner';
-import SyncStatusDashboard from '@/components/dashboard/SyncStatusDashboard';
-import InboxCard from '@/components/dashboard/InboxCard';
-import EmptyState from '@/components/ui/EmptyState';
 import Button from '@/components/ui/Button';
-import AddProjectWizard from '@/components/wizard/AddProjectWizard';
+import Card from '@/components/ui/Card';
 
-// Dashboard-specific components
-import BulkActionBar from './_components/BulkActionBar';
-import ProjectListControls, { type FilterStatus } from './_components/ProjectListControls';
-import ProjectCardGrid from './_components/ProjectCardGrid';
+const STATUS_ICONS: Record<string, any> = {
+  'Not started': AlertCircle,
+  'In progress': Clock,
+  'Done': CheckCircle2,
+  'Blocked': PauseCircle,
+  'Deferred': PauseCircle
+};
 
-import type { Project } from '@/types';
+const STATUS_COLORS: Record<string, string> = {
+  'Not started': 'text-amber-400',
+  'In progress': 'text-blue-400',
+  'Done': 'text-emerald-400',
+  'Blocked': 'text-red-400',
+  'Deferred': 'text-slate-400'
+};
 
-/**
- * Main Dashboard page
- *
- * Uses centralized polling from useAppData for projects list.
- * Polling is handled by the provider - no local setInterval needed.
- */
 export default function Dashboard() {
-  const { showToast } = useToast();
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Use centralized data - no more local polling
-  const { projects, refresh: refreshProjects } = useProjects();
-  const { refreshAll } = useAppData();
+  const fetchData = useCallback(async (force = false) => {
+    try {
+      const url = force ? '/api/dashboard?force=true' : '/api/dashboard';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to load dashboard');
+      const json = await res.json();
+      setData(json);
+      setError(null);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to load');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // Enable background sync event detection with toast notifications
-  useSyncEvents();
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
-  // Global sync state
-  const [syncing, setSyncing] = useState(false);
-  const [showWizard, setShowWizard] = useState(false);
-
-  // Per-project loading states
-  const [syncingProjects, setSyncingProjects] = useState<Set<string>>(new Set());
-  const [refreshingProjects, setRefreshingProjects] = useState<Set<string>>(new Set());
-  const [reverseSyncingProjects, setReverseSyncingProjects] = useState<Set<string>>(new Set());
-
-  // Filter and selection state
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-  const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
-  const [bulkSyncing, setBulkSyncing] = useState(false);
-  const [bulkRefreshing, setBulkRefreshing] = useState(false);
-
-  // Derive lastSync from projects (most recent)
-  const lastSync = useMemo(() => {
-    if (!projects || projects.length === 0) return null;
-    const sorted = [...projects].sort(
-      (a, b) => new Date(b.lastSync || 0).getTime() - new Date(a.lastSync || 0).getTime()
+  if (loading) {
+    return (
+      <>
+        <Header title="Dashboard" description="Loading..." />
+        <div className="flex items-center justify-center py-20">
+          <div className="w-6 h-6 border-2 border-neutral-600 border-t-neutral-300 rounded-full animate-spin" />
+        </div>
+      </>
     );
-    return sorted[0]?.lastSync || null;
-  }, [projects]);
+  }
 
-  // Filter and search projects
-  const filteredProjects = useMemo(() => {
-    return projects.filter((project: Project) => {
-      const matchesSearch =
-        searchQuery === '' ||
-        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        project.slug.toLowerCase().includes(searchQuery.toLowerCase());
+  if (!data) {
+    return (
+      <>
+        <Header title="Dashboard" description="Manage your projects and inbox" />
+        <Card className="p-8 text-center">
+          <p className="text-red-400 mb-4">{error || 'No data available'}</p>
+          <Button variant="secondary" onClick={() => { setLoading(true); setError(null); fetchData(); }}>
+            <RefreshCw size={16} /> Retry
+          </Button>
+        </Card>
+      </>
+    );
+  }
 
-      const matchesStatus =
-        filterStatus === 'all' ||
-        (filterStatus === 'active' && project.active) ||
-        (filterStatus === 'paused' && !project.active);
-
-      return matchesSearch && matchesStatus;
-    });
-  }, [projects, searchQuery, filterStatus]);
-
-  // =============================================================================
-  // Sync Handlers
-  // =============================================================================
-
-  const handleSyncAll = useCallback(async () => {
-    setSyncing(true);
-    try {
-      const res = await fetch('/api/sync', { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Sync failed', 'error');
-        return;
-      }
-
-      const total = data.results?.reduce((sum: number, r: { processed: number }) => sum + r.processed, 0) || 0;
-      showToast(`Sync complete! Processed ${total} items`, 'success');
-      await refreshProjects();
-    } catch (error) {
-      showToast((error as Error).message || 'Network error', 'error');
-    } finally {
-      setSyncing(false);
-    }
-  }, [showToast, refreshProjects]);
-
-  const handleSyncProject = useCallback(async (projectId: string) => {
-    setSyncingProjects((prev) => new Set(prev).add(projectId));
-    try {
-      const res = await fetch(`/api/sync/${projectId}`, { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Sync failed', 'error');
-        return;
-      }
-
-      showToast('Project synced successfully', 'success');
-      await refreshProjects();
-    } catch (error) {
-      showToast((error as Error).message || 'Network error', 'error');
-    } finally {
-      setSyncingProjects((prev) => {
-        const next = new Set(prev);
-        next.delete(projectId);
-        return next;
-      });
-    }
-  }, [showToast, refreshProjects]);
-
-  const handleToggleActive = useCallback(async (projectId: string, active: boolean) => {
-    try {
-      await fetch(`/api/projects/${projectId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ active })
-      });
-      await refreshProjects();
-    } catch (error) {
-      console.error('Update failed:', error);
-    }
-  }, [refreshProjects]);
-
-  const handleRefreshStats = useCallback(async (projectId: string) => {
-    setRefreshingProjects((prev) => new Set(prev).add(projectId));
-    try {
-      const res = await fetch(`/api/projects/${projectId}/refresh`, { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Refresh failed', 'error');
-        return;
-      }
-
-      showToast('Stats refreshed from disk', 'success');
-      await refreshProjects();
-    } catch (error) {
-      showToast((error as Error).message || 'Network error', 'error');
-    } finally {
-      setRefreshingProjects((prev) => {
-        const next = new Set(prev);
-        next.delete(projectId);
-        return next;
-      });
-    }
-  }, [showToast, refreshProjects]);
-
-  const handleRefreshAllStats = useCallback(async () => {
-    try {
-      const res = await fetch('/api/projects?refresh=true');
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Refresh failed', 'error');
-        return;
-      }
-
-      await refreshProjects();
-      showToast('All stats refreshed from disk', 'success');
-    } catch (error) {
-      showToast((error as Error).message || 'Network error', 'error');
-    }
-  }, [showToast, refreshProjects]);
-
-  const handleReverseSync = useCallback(async (projectId: string) => {
-    setReverseSyncingProjects((prev) => new Set(prev).add(projectId));
-    try {
-      const res = await fetch(`/api/projects/${projectId}/reverse-sync`, { method: 'POST' });
-      const data = await res.json();
-
-      if (!res.ok) {
-        showToast(data.error || 'Reverse sync failed', 'error');
-        return;
-      }
-
-      const { updated, failed } = data.result;
-      if (updated > 0) {
-        showToast(`Synced ${updated} file(s) to Notion`, 'success');
-      } else if (failed > 0) {
-        showToast(`Reverse sync: ${failed} failed`, 'warning');
-      } else {
-        showToast('No files needed syncing', 'info');
-      }
-
-      await refreshProjects();
-    } catch (error) {
-      showToast((error as Error).message || 'Network error', 'error');
-    } finally {
-      setReverseSyncingProjects((prev) => {
-        const next = new Set(prev);
-        next.delete(projectId);
-        return next;
-      });
-    }
-  }, [showToast, refreshProjects]);
-
-  const handleWizardSuccess = useCallback(async () => {
-    showToast('Project created successfully', 'success');
-    await refreshProjects();
-  }, [showToast, refreshProjects]);
-
-  // =============================================================================
-  // Selection Handlers
-  // =============================================================================
-
-  const handleToggleSelection = useCallback((projectId: string) => {
-    setSelectedProjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(projectId)) {
-        next.delete(projectId);
-      } else {
-        next.add(projectId);
-      }
-      return next;
-    });
-  }, []);
-
-  const handleSelectAll = useCallback(() => {
-    const visibleIds = filteredProjects.map((p: Project) => p.id);
-    setSelectedProjects(new Set(visibleIds));
-  }, [filteredProjects]);
-
-  const handleClearSelection = useCallback(() => {
-    setSelectedProjects(new Set());
-    setSelectionMode(false);
-  }, []);
-
-  const handleSelectionModeToggle = useCallback(() => {
-    if (selectionMode) {
-      handleClearSelection();
-    } else {
-      setSelectionMode(true);
-    }
-  }, [selectionMode, handleClearSelection]);
-
-  // =============================================================================
-  // Bulk Operations
-  // =============================================================================
-
-  const handleBulkSync = useCallback(async () => {
-    if (selectedProjects.size === 0) return;
-
-    setBulkSyncing(true);
-    const projectIds = Array.from(selectedProjects);
-
-    try {
-      const results = await Promise.allSettled(
-        projectIds.map((id) =>
-          fetch(`/api/sync/${id}`, { method: 'POST' }).then((r) => r.json())
-        )
-      );
-
-      const succeeded = results.filter(
-        (r) => r.status === 'fulfilled' && !(r.value as { error?: string }).error
-      ).length;
-      const failed = results.length - succeeded;
-
-      if (failed > 0) {
-        showToast(`Synced ${succeeded} projects, ${failed} failed`, 'warning');
-      } else {
-        showToast(`Successfully synced ${succeeded} projects`, 'success');
-      }
-
-      await refreshProjects();
-      handleClearSelection();
-    } catch {
-      showToast('Bulk sync failed', 'error');
-    } finally {
-      setBulkSyncing(false);
-    }
-  }, [selectedProjects, showToast, refreshProjects, handleClearSelection]);
-
-  const handleBulkRefresh = useCallback(async () => {
-    if (selectedProjects.size === 0) return;
-
-    setBulkRefreshing(true);
-    const projectIds = Array.from(selectedProjects);
-
-    try {
-      const results = await Promise.allSettled(
-        projectIds.map((id) =>
-          fetch(`/api/projects/${id}/refresh`, { method: 'POST' }).then((r) => r.json())
-        )
-      );
-
-      const succeeded = results.filter(
-        (r) => r.status === 'fulfilled' && !(r.value as { error?: string }).error
-      ).length;
-      showToast(`Refreshed stats for ${succeeded} projects`, 'success');
-
-      await refreshProjects();
-      handleClearSelection();
-    } catch {
-      showToast('Bulk refresh failed', 'error');
-    } finally {
-      setBulkRefreshing(false);
-    }
-  }, [selectedProjects, showToast, refreshProjects, handleClearSelection]);
-
-  // =============================================================================
-  // Render
-  // =============================================================================
+  const { projects = [], unassigned = [], analytics, activity = [] } = data;
 
   return (
     <>
       <Header
         title="Dashboard"
-        description="Manage your projects and sync development prompts from Notion"
+        description="Triage inbox items and track project status"
         actions={
-          <Button onClick={() => setShowWizard(true)} className="flex items-center gap-2">
-            <FolderPlus size={18} aria-hidden="true" />
-            New Project
+          <Button variant="ghost" onClick={() => { setLoading(true); fetchData(true); }} className="flex items-center gap-1 text-sm">
+            <RefreshCw size={14} /> Refresh
           </Button>
         }
       />
 
-      <SyncBanner syncing={syncing} lastSync={lastSync} onSync={handleSyncAll} />
+      {/* Unassigned Inbox Card */}
+      <Card className="mb-8 p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-amber-500/10">
+              <ClipboardList size={22} className="text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-medium text-neutral-100">Inbox</h2>
+              <p className="text-sm text-neutral-400">
+                {unassigned.length === 0
+                  ? 'No items need assignment'
+                  : `${unassigned.length} item${unassigned.length > 1 ? 's' : ''} waiting to be assigned`}
+              </p>
+            </div>
+          </div>
+          {unassigned.length > 0 && (
+            <Link href="/inbox" className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/20 text-amber-300 rounded-lg text-sm font-medium hover:bg-amber-500/30 transition-colors">
+              <ClipboardList size={16} /> Triage ({unassigned.length})
+            </Link>
+          )}
+        </div>
+      </Card>
 
-      <SyncStatusDashboard />
-
+      {/* Project Cards */}
       <div className="mb-8">
-        <InboxCard />
+        <h2 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Projects</h2>
+        {projects.length === 0 ? (
+          <Card className="p-8 text-center text-neutral-500">
+            No projects found. Add projects to your NSM Project Slugs page in Notion.
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {projects.map((project: any) => {
+              const { stats } = project;
+              const total = (Object.values(stats) as number[]).reduce((a, b) => a + b, 0);
+              return (
+                <Card key={project.slug} className="p-5 hover:border-neutral-600 transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-medium text-neutral-100">{project.name}</h3>
+                    <span className="text-xs text-neutral-500 font-mono">{project.slug}</span>
+                  </div>
+                  <div className="flex items-center gap-4 mb-3">
+                    {Object.entries(stats).map(([status, count]: [string, any]) => {
+                      const Icon = STATUS_ICONS[status] || AlertCircle;
+                      return (
+                        <div key={status} className="flex items-center gap-1" title={status}>
+                          <Icon size={14} className={STATUS_COLORS[status] || 'text-neutral-500'} />
+                          <span className="text-sm text-neutral-300">{count}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-neutral-500">
+                    <span>{total} total</span>
+                    {project.phases && <span className="truncate max-w-[60%]">{project.phases}</span>}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      <StatsOverview projects={projects} onRefreshAll={handleRefreshAllStats} />
-
-      {/* Bulk Action Bar - appears when projects are selected */}
-      {selectionMode && (
-        <BulkActionBar
-          selectedCount={selectedProjects.size}
-          bulkSyncing={bulkSyncing}
-          bulkRefreshing={bulkRefreshing}
-          onBulkSync={handleBulkSync}
-          onBulkRefresh={handleBulkRefresh}
-          onClearSelection={handleClearSelection}
-        />
+      {/* Recent Activity */}
+      {activity && activity.length > 0 && (
+        <div>
+          <h2 className="text-sm font-medium text-neutral-400 uppercase tracking-wider mb-4">Recent Activity</h2>
+          <Card className="divide-y divide-neutral-800">
+            {activity.slice(0, 5).map((item: any) => (
+              <div key={item.pageId} className="flex items-center gap-3 px-4 py-3">
+                <CheckCircle2 size={16} className="text-emerald-400 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-neutral-200 truncate">{item.title}</p>
+                  <p className="text-xs text-neutral-500">
+                    {item.project || 'unassigned'} — {item.type} — {item.processedDate}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </Card>
+        </div>
       )}
-
-      {/* Search and Filter Bar */}
-      {projects.length > 0 && (
-        <ProjectListControls
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          filterStatus={filterStatus}
-          onFilterChange={setFilterStatus}
-          selectionMode={selectionMode}
-          onSelectionModeToggle={handleSelectionModeToggle}
-          filteredCount={filteredProjects.length}
-          onSelectAll={handleSelectAll}
-        />
-      )}
-
-      {projects.length === 0 ? (
-        <EmptyState
-          icon={FolderPlus}
-          title="No projects yet"
-          description="Create your first project to start syncing development prompts from Notion"
-          action={
-            <Button onClick={() => setShowWizard(true)} className="flex items-center gap-2">
-              <FolderPlus size={18} aria-hidden="true" />
-              Create First Project
-            </Button>
-          }
-        />
-      ) : filteredProjects.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title="No matching projects"
-          description={
-            searchQuery
-              ? `No projects match "${searchQuery}"`
-              : 'No projects match the current filter'
-          }
-          action={
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSearchQuery('');
-                setFilterStatus('all');
-              }}
-            >
-              Clear Filters
-            </Button>
-          }
-        />
-      ) : (
-        <ProjectCardGrid
-          projects={filteredProjects}
-          syncingProjects={syncingProjects}
-          refreshingProjects={refreshingProjects}
-          reverseSyncingProjects={reverseSyncingProjects}
-          selectionMode={selectionMode}
-          selectedProjects={selectedProjects}
-          onSync={handleSyncProject}
-          onToggleActive={handleToggleActive}
-          onRefreshStats={handleRefreshStats}
-          onReverseSync={handleReverseSync}
-          onToggleSelection={handleToggleSelection}
-        />
-      )}
-
-      <AddProjectWizard
-        isOpen={showWizard}
-        onClose={() => setShowWizard(false)}
-        onSuccess={handleWizardSuccess}
-      />
     </>
   );
 }
