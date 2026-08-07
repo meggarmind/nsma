@@ -47,20 +47,21 @@ Access dashboard at: http://localhost:3100
 
 ### 5. Install the NSMA Companion Plugin (Claude Code)
 
-Add to your project's `.claude/settings.json`:
+First, install the plugin's MCP dependencies:
 
-```json
-{
-  "plugins": [
-    {
-      "name": "nsma-companion",
-      "path": "../path/to/Nsma/plugin"
-    }
-  ]
-}
+```bash
+cd plugin && npm install
+```
+
+Then launch Claude Code with the plugin loaded (from any project directory):
+
+```bash
+claude --plugin-dir /path/to/Nsma/plugin
 ```
 
 This enables `/nsma-setup` and `/nsma-complete` slash commands plus automatic inbox scanning on session start.
+
+> **Note:** The plugin must stay inside the NSMA repo — it imports shared libraries from `../../lib/` relative to the plugin directory.
 
 ## Architecture
 

@@ -33,32 +33,19 @@ The Notion token is **never persisted to disk** — it stays in the environment 
 
 ## Installation
 
-### Option A: From the NSMA Repo
-
-Add to your project's `.claude/settings.json`:
-
-```json
-{
-  "plugins": [
-    {
-      "name": "nsma-companion",
-      "path": "../path/to/Nsma/plugin"
-    }
-  ]
-}
-```
-
-If `plugin/node_modules/` does not exist, install dependencies first:
+Install the MCP server dependencies first:
 
 ```bash
 cd path/to/Nsma/plugin && npm install
 ```
 
-The plugin depends on shared library code at `../../lib/` — it must live inside the NSMA repository structure.
+Then launch Claude Code with the `--plugin-dir` flag pointing at the plugin directory inside the NSMA repo:
 
-### Option B: Standalone (Future)
+```bash
+claude --plugin-dir ./path/to/Nsma/plugin
+```
 
-Not yet supported. The plugin currently relies on co-located shared libraries (`lib/notion-client`, `lib/config-parser`). Standalone distribution would require bundling these or publishing them as separate packages.
+**Important:** The plugin imports shared library code from `../../lib/` (relative to the plugin directory). It must stay inside the NSMA repo structure — copying it to `~/.claude/skills/` or elsewhere will break these imports. Standalone distribution would require bundling the shared libraries or publishing them as separate packages with a marketplace.
 
 ## Per-Project Setup
 
