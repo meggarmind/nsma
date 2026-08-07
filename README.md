@@ -15,128 +15,119 @@ Multi-project development inbox processor that syncs ideas/tasks from Notion and
 
 ## Quick Start
 
-> This walkthrough uses the NSMA project itself as the sample. By the end, you'll have the plugin running in your AI coding agent on this repo.
+Install the plugin in your project in 4 steps.
 
 ### Step 1: Clone and Install
 
 ```bash
 git clone https://github.com/meggarmind/nsma.git
 cd nsma
-npm install               # Web dashboard dependencies
+npm install               # Dashboard dependencies
 cd plugin && npm install  # MCP server dependencies
 cd ..
 ```
 
-### Step 2: Configure Environment
+### Step 2: Copy Config Files Into Your Project
 
-Copy the example env file and fill in your Notion credentials:
+Copy the plugin config into the project you want to use it with:
 
 ```bash
-cp .env.example .env
+cp opencode.json /path/to/your-project/
+cp -r .opencode /path/to/your-project/
 ```
 
-Edit `.env` — you need:
-- `NOTION_TOKEN` — your Notion integration secret (get one at https://www.notion.so/my-integrations)
-- `NOTION_DATABASE_ID` — the ID of your NSM Inbox database
-- `REGISTRATION_TOKEN` — any UUID (generate with `uuidgen` on Linux/Mac, `[guid]::NewGuid()` on PowerShell)
+(Claude Code users skip this — just run `claude --plugin-dir /path/to/Nsma/plugin` from your project.)
 
-Export the plugin environment variables in your shell profile:
+### Step 3: Set Environment Variables
 
-**Bash/Zsh:**
-```bash
-export NSMA_NOTION_TOKEN="ntn_your_token_here"
-export NSMA_NOTION_INBOX_DB_ID="your_database_id_here"
-```
-
-**PowerShell:**
 ```powershell
-$env:NSMA_NOTION_TOKEN = "ntn_your_token_here"
-$env:NSMA_NOTION_INBOX_DB_ID = "your_database_id_here"
+# PowerShell (add to your $PROFILE for persistence)
+$env:NSMA_NOTION_TOKEN = "ntn_your_integration_token"
+$env:NSMA_NOTION_INBOX_DB_ID = "your_notion_database_id"
 ```
-
-> **Security:** The Notion token is read from environment variables only. It is never written to any config file, so it cannot end up in your git history.
-
-### Step 3: Launch the Dashboard (Optional)
 
 ```bash
-npm run dev
+# Bash/Zsh (add to ~/.bashrc or ~/.zshrc)
+export NSMA_NOTION_TOKEN="ntn_your_integration_token"
+export NSMA_NOTION_INBOX_DB_ID="your_notion_database_id"
 ```
 
-Open http://localhost:3100 — manage projects, view analytics, and browse the inbox. The plugin works with or without the dashboard running.
+> **Security:** The token stays in your environment only. It is never written to disk and cannot end up in git history.
 
-### Step 4: Set Up the Plugin
+### Step 4: Bootstrap the Project
 
-The repo ships with an `opencode.json` config and `.opencode/plugin/` already in place — it's ready to use immediately. Choose your agent:
-
-**opencode (built-in):**
-
-The plugin loads automatically on session start. Run `/nsma-setup` to bootstrap the project:
+Open your project in opencode (or Claude Code with `--plugin-dir`), then run:
 
 ```
 /nsma-setup
 ```
 
-This creates `prompts/{pending,processed,archived,deferred}/`, writes `.nsma-plugin.json`, and registers the project in Notion.
+This creates `prompts/{pending,processed,archived,deferred}/`, writes a `.nsma-plugin.json` config file, and registers the project in your Notion NSM Project Slugs page.
 
-**Claude Code:**
+**Bonus:** If your project already has a `.nsma-config.md` defining phases and modules, the setup auto-imports them. See the [example config](./.nsma-config.example.md).
 
-```bash
-claude --plugin-dir ./plugin
+## Daily Workflow
+
+Once the project is set up, here's how a task flows through:
+
+```
+Notion Inbox                  prompts/pending/              prompts/processed/
+┌──────────┐    triage        ┌──────────┐   /nsma-complete  ┌───────────┐
+│ New idea │ ──────────────→  │ task.md  │ ───────────────→  │ task.md   │
+│ "Not start│                 │ "In prog │                   │ (Done)    │
+└──────────┘                  └──────────┘                   └───────────┘
 ```
 
-Then run `/nsma-setup` in the session.
+### Triage (start of session / when new items arrive)
 
-### Step 5: Daily Workflow
+1. **Bug-family items** (Bug Fix, Documentation, Security Fix, Technical Debt) are mechanically classified with a phase and written to `prompts/pending/`. No interaction needed — they appear ready to work on.
 
-Each time you open a session in this project:
+2. **Ideation items** (Feature, Improvement, Research/Spike) need your judgment. For each one, decide the phase, priority, and module, then call the `record_triage_decision` MCP tool. The plugin generates the task file and updates Notion.
 
-1. **Bug-family items** (Bug Fix, Documentation, Security Fix, Technical Debt) are mechanically classified and written to `prompts/pending/` — no interaction needed (Claude Code: SessionStart hook; opencode: plugin injects context, run pending items list manually)
-2. **Ideation items** (Feature, Improvement, Research/Spike) need your triage — determine phase, priority, and module, then call the `record_triage_decision` MCP tool with your conclusion
-3. **When a task is done** — run `/nsma-complete <filename>` to move it to `prompts/processed/` and mark it Done in Notion
+### Implement
 
-### Adding Other Projects
+Work on the task files in `prompts/pending/`. Each file includes the full context: phase, module, related files, dependencies, and the original Notion description.
 
-1. Create a `.nsma-config.md` in the project root defining its phases and modules (see [example](./.nsma-config.example.md))
-2. Copy the opencode config files into the project:
-   ```bash
-   cp opencode.json /path/to/your/project/
-   cp -r .opencode /path/to/your/project/
-   ```
-3. Open the project in opencode, or launch Claude Code:
-   ```bash
-   claude --plugin-dir /path/to/Nsma/plugin
-   ```
-4. Run `/nsma-setup`
-5. Add the project's slug as an option in your Notion Inbox database's "Project" select property
-6. Tag Notion items with the slug to have them appear in triage scans
+### Mark Complete
+
+When you finish implementing a task, run:
+
+```
+/nsma-complete <filename>
+```
+
+This does two things: updates the Notion item status to "Done", and moves the file from `prompts/pending/` to `prompts/processed/`. You run this manually when the work is actually done — it's the final "mark complete" action.
 
 ## Integration
 
 ### opencode
 
-The `opencode.json` config and `.opencode/plugin/` ship with this repo and activate automatically when you open the project in opencode:
+The `opencode.json` and `.opencode/plugin/` files you copied in Step 2 are the full integration:
 
 - **MCP server** (`nsma-companion`) auto-starts — provides the `record_triage_decision` tool
 - **Plugin module** injects NSMA triage context into each session
-- **`/nsma-setup`** — bootstraps the project (creates prompts dirs, writes `.nsma-plugin.json`, registers in Notion)
-- **`/nsma-complete`** — marks a task Done in Notion and moves the file to `processed/`
-
-To use in other projects, copy `opencode.json` and `.opencode/` into that project:
-```bash
-cp opencode.json /path/to/your/project/
-cp -r .opencode /path/to/your/project/
-```
+- **`/nsma-setup`** — first-time project bootstrap
+- **`/nsma-complete`** — mark a task as done
 
 ### Claude Code
 
 ```bash
-cd plugin && npm install
-claude --plugin-dir ./path/to/plugin
+claude --plugin-dir /path/to/Nsma/plugin
 ```
 
-Provides the same `/nsma-setup`, `/nsma-complete`, MCP server, plus a **SessionStart hook** that automatically scans the Notion inbox and mechanically classifies bug-family items. See [plugin/README.md](plugin/README.md) for details.
+Same `/nsma-setup`, `/nsma-complete`, and MCP server, plus a **SessionStart hook** that automatically scans the Notion inbox on every session start and mechanically classifies bug items. See [plugin/README.md](plugin/README.md) for full details.
 
-## Prompt Generation
+## Adding More Projects
+
+Once NSMA is cloned and installed, adding another project takes three steps:
+
+1. Copy `opencode.json` and `.opencode/` into the new project
+2. Create a `.nsma-config.md` defining the project's phases and modules
+3. Open the project and run `/nsma-setup`
+
+Add the project's slug to your Notion Inbox database's "Project" select property, then tag items with that slug to have them appear in triage.
+
+## Architecture
 
 ### Phase Assignment Logic
 
